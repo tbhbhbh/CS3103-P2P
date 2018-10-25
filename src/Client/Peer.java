@@ -23,6 +23,7 @@ public class Peer {
     private int peerId;
     private int port;
     private int numChunks;
+    
     final String directory = "./src/files/";
 
     public ServerSocket serverSocket;
