@@ -42,9 +42,6 @@ public class Client {
             }
         }
 
-
-        peer.updateServer(clientSocket);
-
         Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.println("\nSelect option: ");
@@ -67,7 +64,11 @@ public class Client {
             }
 
             if (option == 4) {
+                String filename;
+                filename = scanner.nextLine();
                 System.out.println("Initial announcement of a file");
+                peer.updateServer(clientSocket, filename);
+
             }
 
             else if (option == 5) {
