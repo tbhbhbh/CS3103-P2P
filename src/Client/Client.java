@@ -9,18 +9,19 @@ import java.util.Scanner;
 public class Client {
 
     /*
-    * 
+    *
     *
      */
     private final int SERVER_PORT = 8080;
     private Socket clientSocket;
     private int option;
+    final String DIRECTORY = "./src/files/";
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
         new Client();
     }
 
-    public Client() throws IOException {
+    public Client() throws Exception {
         System.out.println("Client connecting to tracker on port " + SERVER_PORT + "\n");
 
         Peer peer = new Peer();
@@ -31,7 +32,7 @@ public class Client {
             System.out.println(e);
         }
 
-        File folder = new File("./src/files");
+        File folder = new File(DIRECTORY);
         File[] listOfFiles = folder.listFiles();
 
         for (int i = 0; i < listOfFiles.length; i++) {
@@ -71,6 +72,7 @@ public class Client {
 
             if (option == 3) {
                 System.out.println("Downloading a file");
+                peer.download();
             }
 
             if (option == 4) {
