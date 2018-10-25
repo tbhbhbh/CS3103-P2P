@@ -52,6 +52,7 @@ public class Peer {
         final int numChunks = (int) (sourceSize / bytesPerSplit);
         final long remainingBytes = sourceSize % bytesPerSplit;
         int position = 0;
+        int index = 0;
 
         //create a folder with filename
         new File(directory + fileName).mkdirs();
@@ -60,21 +61,22 @@ public class Peer {
         //split file
         try (RandomAccessFile sourceFile = new RandomAccessFile(directory + fileName, "r");
              FileChannel sourceChannel = sourceFile.getChannel()) {
-            for (int i = 0; position < numChunks; position++) {
-                Path filePart = Paths.get(directory + fileName + "/" + fileName + i);
+            for (; position < numChunks; position++) {
+                Path filePart = Paths.get(directory + fileName + "/" + fileName + index);
                 try (RandomAccessFile toFile = new RandomAccessFile(filePart.toFile(), "rw");
                     FileChannel toChannel = toFile.getChannel()) {
-                    sourceChannel.position(position);
-                    toChannel.transferFrom(sourceChannel, 0, bytesPerSplit);
+                    sourceChannel.position(position * bytesPerSplit);
+                    toChannel.transferFrom(sourceChannel,  0, bytesPerSplit);
 
                 }
+                index++;
             }
 
             if (remainingBytes != 0) {
-                Path filePart = Paths.get(directory + fileName + "/" + fileName + numChunks);
+                Path filePart = Paths.get(directory + fileName + "/" + fileName + index);
                 try (RandomAccessFile toFile = new RandomAccessFile(filePart.toFile(), "rw");
                      FileChannel toChannel = toFile.getChannel()) {
-                    sourceChannel.position(numChunks);
+                    sourceChannel.position(position * bytesPerSplit);
                     toChannel.transferFrom(sourceChannel, 0, remainingBytes);
 
                 }
@@ -88,7 +90,7 @@ public class Peer {
         dOut.writeByte(0);
         dOut.flush();
 
-        //Files names
+        //File name
         dOut.writeByte(1);
         dOut.writeUTF(fileName);
         dOut.flush();
