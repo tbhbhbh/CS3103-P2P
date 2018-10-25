@@ -1,19 +1,17 @@
 package Client;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
+import jdk.jshell.execution.Util;
+
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
 import java.util.Random;
 
 public class Peer {
 
     private int peerId;
     private int port;
-    private ArrayList<String> listOfFiles = new ArrayList<>();
     private String fileName;
-    private String fileNameHash;
     private int numChunks;
 
     public ServerSocket serverSocket;
@@ -39,17 +37,37 @@ public class Peer {
     }
 
     /*
-     * Peer registers itself to the central directory server.
+     * Peer updates server of a file
      *
      */
-    public void register(Socket socket) throws IOException {
+    public void updateServer(Socket socket) throws IOException {
         System.out.println("Registering peer");
-        DataOutputStream dataOutToServer = new DataOutputStream(socket.getOutputStream());
+        DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
         //Option to register in the server (new peer)
-        dataOutToServer.writeByte(0);
-        dataOutToServer.flush();
+        dOut.writeByte(0);
+        dOut.flush();
+
+        //Files names
+        dOut.writeByte(1);
+        dOut.writeUTF(fileName);
+        dOut.flush();
+        //Number of chunks
+        dOut.writeByte(2);
+        dOut.writeInt(numChunks);
+        dOut.flush();
+        //port number
+        dOut.writeByte(3);
+        dOut.writeInt(port);
+        dOut.flush();
+        //end connection
+        dOut.writeByte(-1);
+        dOut.flush();
+
+        dOut.close();
+        socket.close();
     }
 
+    //Uploading
     public void server() throws IOException {
         try {
             serverSocket = new ServerSocket(port);
@@ -63,4 +81,36 @@ public class Peer {
             System.out.println("Accepted connection from peer\n");
         }
     }
+
+    //Downloading
+    public void download(String peerAddress, int port, String fileName, int i)  throws IOException {
+        Socket socket = new Socket(peerAddress, port);
+        DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
+        dOut.writeUTF(fileName);
+        InputStream in = socket.getInputStream();
+
+        String folder = "downloads-peer" + peerId + "/";
+        File f = new File(folder);
+        Boolean created = false;
+        if (!f.exists()){
+            try {
+                created = f.mkdir();
+            }catch (Exception e){
+                System.out.println("Couldn't create the folder, the file will be saved in the current directory!");
+            }
+        }else {
+            created = true;
+        }
+
+        if(i != -1) fileName = fileName + i;
+
+        OutputStream out = (created) ? new FileOutputStream(f.toString() + "/" + fileName) : new FileOutputStream(fileName);
+        System.out.println("File " + fileName + " received from peer " + peerAddress + ":" + port);
+        dOut.close();
+        out.close();
+        in.close();
+        socket.close();
+    }
+
+
 }

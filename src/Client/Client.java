@@ -43,25 +43,40 @@ public class Client {
         }
 
 
-        peer.register(clientSocket);
+        peer.updateServer(clientSocket);
 
         Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.println("\nSelect option: ");
-            System.out.println("1: List files on directory server");
-            System.out.println("2: Disconnect");
+            System.out.println("1: List files from server");
+            System.out.println("2: Request for a file");
+            System.out.println("3: Download a file");
+            System.out.println("4: Update server on a file");
+            System.out.println("5: Disconnect");
             option = scanner.nextInt();
             if (option == 1) {
-                System.out.println("listing files");
+                System.out.println("listing files from server...");
             }
 
-            else if (option == 2) {
+            if (option == 2) {
+                System.out.println("Requesting file from server on how many chunks and peer info");
+            }
+
+            if (option == 3) {
+                System.out.println("Downloading a file");
+            }
+
+            if (option == 4) {
+                System.out.println("Initial announcement of a file");
+            }
+
+            else if (option == 5) {
                 System.out.println("Deregistering and disconnecting. Goodbye");
                 disconnect(clientSocket);
                 break;
             }
 
-            else if (option > 1) {
+            else if (option > 5) {
                 System.out.println("Invalid option");
             }
         }
