@@ -23,9 +23,10 @@ import Commons.cInfo;
 
 public class Peer {
 
-    private final String OUTPUT_DIRECTORY = "p2pdownload/";
+    private final String OUTPUT_DIRECTORY = "./src/p2pdonload/";
     private final String CHUNK_DIRECTORY = OUTPUT_DIRECTORY + "chunks/";
     private final int BUFFER_SIZE = 1024;
+    private fInfo fInfo;
     private int peerId;
     private int port;
     private String fileName = "";
@@ -36,6 +37,7 @@ public class Peer {
 
     public Peer() {
         this.port = generatePort();
+
     }
 
     // getters
@@ -141,11 +143,13 @@ public class Peer {
     }
 
     // Downloading
-    public void download(fInfo fInfo) throws Exception {
+    public void download() throws Exception {
+        if (fInfo == null) {
+            System.out.println("Request file from server first!");
+            return;
+        }
 
-        // allocate space for file
-        String filename = "placeholder";
-
+        String filename = fInfo.getFilename();
         Path directory = Files.createDirectory(Paths.get(CHUNK_DIRECTORY, filename));
 
         // download chunks from peers
@@ -163,6 +167,7 @@ public class Peer {
 
         System.out.println(String.format("Finish downloading all the chunks of %s", filename));
         System.out.println("Combining all the chunks together...");
+
         // merge chunks together
         FileOutputStream fos = new FileOutputStream(OUTPUT_DIRECTORY+filename);
         DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(fos));
@@ -185,13 +190,13 @@ public class Peer {
 
     }
 
-    //Downloading
     public void downloadFromPeer(Path directory, InetAddress peerAddress, int port, String fileName, int i)  throws IOException {
         // connect to peer
         Socket socket = new Socket(peerAddress, port);
 
         // send chunk request
         DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+
         dos.writeUTF(fileName+String.valueOf(i));
         dos.flush();
 
@@ -215,6 +220,8 @@ public class Peer {
 
         // TODO: inform tracker of completed chunk
     }
+
+
 
 
 }
