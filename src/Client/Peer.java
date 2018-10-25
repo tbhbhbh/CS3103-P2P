@@ -22,14 +22,23 @@ public class Peer {
     private fInfo fInfo;
     private int peerId;
     private int port;
+<<<<<<< Updated upstream
     private int numChunks;
     
     final String directory = "./src/files/";
+=======
+    private ArrayList<String> listOfFiles;
+>>>>>>> Stashed changes
 
     public ServerSocket serverSocket;
 
-    public Peer() {
+    public Peer(ArrayList<String> listOfFiles) {
+
         this.port = generatePort();
+<<<<<<< Updated upstream
+=======
+        this.listOFFiles = listOfFiles;
+>>>>>>> Stashed changes
 
     }
 
