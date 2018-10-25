@@ -7,10 +7,12 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -26,8 +28,9 @@ public class Peer {
     private final int BUFFER_SIZE = 1024;
     private int peerId;
     private int port;
-    private String fileName;
+    private String fileName = "";
     private int numChunks;
+    final String directory = "./src/files/";
 
     public ServerSocket serverSocket;
 
@@ -51,18 +54,58 @@ public class Peer {
         return r.nextInt(9000-8100) + 8100;
     }
 
+
     /*
      * Peer updates server of a file
      *
      */
-    public void updateServer(Socket socket) throws IOException {
+    public void updateServer(Socket socket, String fileName) throws IOException {
+        this.fileName = fileName;
+
+        final long sourceSize = Files.size(Paths.get(directory + fileName));
+        final long bytesPerSplit =  1024L; //1 chunk = 1024 bytes
+        final int numChunks = (int) (sourceSize / bytesPerSplit);
+        final long remainingBytes = sourceSize % bytesPerSplit;
+        int position = 0;
+        int index = 0;
+
+        //create a folder with filename
+        new File(directory + fileName).mkdirs();
+
+
+        //split file
+        try (RandomAccessFile sourceFile = new RandomAccessFile(directory + fileName, "r");
+             FileChannel sourceChannel = sourceFile.getChannel()) {
+            for (; position < numChunks; position++) {
+                Path filePart = Paths.get(directory + fileName + "/" + fileName + index);
+                try (RandomAccessFile toFile = new RandomAccessFile(filePart.toFile(), "rw");
+                    FileChannel toChannel = toFile.getChannel()) {
+                    sourceChannel.position(position * bytesPerSplit);
+                    toChannel.transferFrom(sourceChannel,  0, bytesPerSplit);
+
+                }
+                index++;
+            }
+
+            if (remainingBytes != 0) {
+                Path filePart = Paths.get(directory + fileName + "/" + fileName + index);
+                try (RandomAccessFile toFile = new RandomAccessFile(filePart.toFile(), "rw");
+                     FileChannel toChannel = toFile.getChannel()) {
+                    sourceChannel.position(position * bytesPerSplit);
+                    toChannel.transferFrom(sourceChannel, 0, remainingBytes);
+
+                }
+            }
+        }
+
+
         System.out.println("Registering peer");
         DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
         //Option to register in the server (new peer)
         dOut.writeByte(0);
         dOut.flush();
 
-        //Files names
+        //File name
         dOut.writeByte(1);
         dOut.writeUTF(fileName);
         dOut.flush();
