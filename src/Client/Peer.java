@@ -1,14 +1,29 @@
 package Client;
 
-import jdk.jshell.execution.Util;
-
-import java.io.*;
+import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Random;
+
+import Commons.fInfo;
+import Commons.cInfo;
 
 public class Peer {
 
+    private final String OUTPUT_DIRECTORY = "p2pdownload/";
+    private final String CHUNK_DIRECTORY = OUTPUT_DIRECTORY + "chunks/";
+    private final int BUFFER_SIZE = 1024;
     private int peerId;
     private int port;
     private String fileName;
@@ -82,34 +97,80 @@ public class Peer {
         }
     }
 
-    //Downloading
-    public void download(String peerAddress, int port, String fileName, int i)  throws IOException {
-        Socket socket = new Socket(peerAddress, port);
-        DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
-        dOut.writeUTF(fileName);
-        InputStream in = socket.getInputStream();
+    // Downloading
+    public void download(fInfo fInfo) throws Exception {
 
-        String folder = "downloads-peer" + peerId + "/";
-        File f = new File(folder);
-        Boolean created = false;
-        if (!f.exists()){
-            try {
-                created = f.mkdir();
-            }catch (Exception e){
-                System.out.println("Couldn't create the folder, the file will be saved in the current directory!");
-            }
-        }else {
-            created = true;
+        // allocate space for file
+        String filename = "placeholder";
+
+        Path directory = Files.createDirectory(Paths.get(CHUNK_DIRECTORY, filename));
+
+        // download chunks from peers
+
+        numChunks = fInfo.getNumOfChunks();
+        // Single Thread for now...
+        for (int i = 0; i < numChunks; i++) {
+            cInfo chunk = fInfo.getChunk(i);
+            int chunkID = chunk.getChunkID();
+            InetSocketAddress peerSocket = chunk.getRdmPeer();
+            InetAddress peerAddress = peerSocket.getAddress();
+            int peerPort = peerSocket.getPort();
+            downloadFromPeer(directory, peerAddress, peerPort, filename, chunkID);
         }
 
-        if(i != -1) fileName = fileName + i;
+        System.out.println(String.format("Finish downloading all the chunks of %s", filename));
+        System.out.println("Combining all the chunks together...");
+        // merge chunks together
+        FileOutputStream fos = new FileOutputStream(OUTPUT_DIRECTORY+filename);
+        DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(fos));
 
-        OutputStream out = (created) ? new FileOutputStream(f.toString() + "/" + fileName) : new FileOutputStream(fileName);
-        System.out.println("File " + fileName + " received from peer " + peerAddress + ":" + port);
-        dOut.close();
-        out.close();
+        byte[] buffer = new byte[BUFFER_SIZE];
+        for (int i = 0; i<numChunks; i++) {
+            FileInputStream fis = new FileInputStream(new File(directory.toString(),String.valueOf(i)));
+            int byteRead;
+            do {
+                byteRead = fis.read(buffer);
+                dos.write(buffer, 0, byteRead);
+                dos.flush();
+            } while(byteRead != 0);
+            fis.close();
+        }
+        dos.close();
+        System.out.println(String.format("%s successfully combined from its chunks", filename));
+
+        // TODO: checksum
+
+    }
+
+    //Downloading
+    public void downloadFromPeer(Path directory, InetAddress peerAddress, int port, String fileName, int i)  throws IOException {
+        // connect to peer
+        Socket socket = new Socket(peerAddress, port);
+
+        // send chunk request
+        DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+        dos.writeUTF(fileName+String.valueOf(i));
+        dos.flush();
+
+        // recv chunk data
+        InputStream in = socket.getInputStream();
+
+        File f = new File(directory.toString(),String.valueOf(i));
+        DataOutputStream dosFile = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)));
+        int byteRead;
+        byte[] buffer = new byte[BUFFER_SIZE];
+        do {
+            byteRead = in.read(buffer);
+            dosFile.write(buffer, 0, byteRead);
+            dosFile.flush();
+        } while(byteRead != 0);
+        System.out.println(String.format("Downloaded Chunk %d of %s", i, fileName));
+        dosFile.close();
         in.close();
+        dos.close();
         socket.close();
+
+        // TODO: inform tracker of completed chunk
     }
 
 
