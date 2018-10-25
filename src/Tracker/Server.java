@@ -1,12 +1,20 @@
 package Tracker;
 
 import java.io.IOException;
-import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 
 public class Server {
+
+    /*
+    * 1) initial announcement
+    * peerIP
+    * peerPort
+    * fileName
+    * numChunks
+    *
+     */
 
     private final int LISTENING_PORT = 8080;
     private ServerSocket serverSocket;

@@ -8,6 +8,10 @@ import java.util.Scanner;
 
 public class Client {
 
+    /*
+    * 
+    *
+     */
     private final int SERVER_PORT = 8100;
     private Socket clientSocket;
     private int option;
