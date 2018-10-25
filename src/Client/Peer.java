@@ -22,7 +22,6 @@ public class Peer {
     private fInfo fInfo;
     private int peerId;
     private int port;
-    private String fileName = "";
     private int numChunks;
     final String directory = "./src/files/";
 
@@ -45,6 +44,7 @@ public class Peer {
     private int generatePort() {
         Random r = new Random();
         return r.nextInt(9000-8100) + 8100;
+//        return 8000;
     }
 
 
@@ -53,7 +53,6 @@ public class Peer {
      *
      */
     public void updateServer(Socket socket, String fileName) throws IOException {
-        this.fileName = fileName;
 
         final long sourceSize = Files.size(Paths.get(directory + fileName));
         final long bytesPerSplit =  1024L; //1 chunk = 1024 bytes
@@ -63,14 +62,15 @@ public class Peer {
         int index = 0;
 
         //create a folder with filename
-        new File(directory + fileName).mkdirs();
+        String foldername = "c"+fileName;
+        System.out.println(new File(directory + foldername).mkdirs());
 
 
         //split file
         try (RandomAccessFile sourceFile = new RandomAccessFile(directory + fileName, "r");
              FileChannel sourceChannel = sourceFile.getChannel()) {
             for (; position < numChunks; position++) {
-                Path filePart = Paths.get(directory + fileName + "/" + fileName + index);
+                Path filePart = Paths.get(directory + foldername + "/" + fileName + index);
                 try (RandomAccessFile toFile = new RandomAccessFile(filePart.toFile(), "rw");
                     FileChannel toChannel = toFile.getChannel()) {
                     sourceChannel.position(position * bytesPerSplit);
@@ -81,7 +81,7 @@ public class Peer {
             }
 
             if (remainingBytes != 0) {
-                Path filePart = Paths.get(directory + fileName + "/" + fileName + index);
+                Path filePart = Paths.get(directory + foldername + "/" + fileName + index);
                 try (RandomAccessFile toFile = new RandomAccessFile(filePart.toFile(), "rw");
                      FileChannel toChannel = toFile.getChannel()) {
                     sourceChannel.position(position * bytesPerSplit);
@@ -122,6 +122,7 @@ public class Peer {
     public void server() throws IOException {
         try {
             serverSocket = new ServerSocket(port);
+            System.out.println(String.format("Peer serving %d", port));
         } catch (Exception e) {
             System.out.println(e);
             return;
@@ -139,14 +140,20 @@ public class Peer {
 
             if (option == 6) { //someone requesting a file
                 String filename = dIn.readUTF();
+                System.out.println(String.format("filename: %s", filename));
                 byte chunkID = dIn.readByte();
-
-                File f = new File(directory+filename+"/"+filename+chunkID);
+                System.out.println(String.format("chunkID:%d", chunkID));
+                File f = new File(directory+"c"+filename+"/"+filename+chunkID);
                 FileInputStream fis = new FileInputStream(f);
                 byte[] buffer = new byte[BUFFER_SIZE];
-                int byteRead = fis.read(buffer);
-                dOut.write(buffer, 0, byteRead);
-                dOut.flush();
+                long fileSize = f.length();
+                while (fileSize > 0) {
+                    int byteRead = fis.read(buffer);
+                    dOut.write(buffer, 0, byteRead);
+                    dOut.flush();
+                    fileSize -= byteRead;
+                    System.out.println(String.format("Sent byte: %d", byteRead));
+                }
 
 
                 fis.close();
@@ -159,13 +166,20 @@ public class Peer {
 
     // Downloading
     public void download() throws Exception {
+        fInfo = new fInfo("test");
+        for (int i= 0; i< 14 ; i++) {
+            cInfo cInfo = new cInfo(i);
+            cInfo.addPeer(new InetSocketAddress("localhost", 8000));
+            fInfo.addChunk(cInfo);
+        }
+
         if (fInfo == null) {
             System.out.println("Request file from server first!");
             return;
         }
 
         String filename = fInfo.getFilename();
-        Path directory = Files.createDirectory(Paths.get(CHUNK_DIRECTORY, filename));
+        Path directory = Files.createDirectories(Paths.get(CHUNK_DIRECTORY, filename));
 
         // download chunks from peers
 
@@ -191,11 +205,13 @@ public class Peer {
         for (int i = 0; i<numChunks; i++) {
             FileInputStream fis = new FileInputStream(new File(directory.toString(),String.valueOf(i)));
             int byteRead;
-            do {
+            while (true) {
                 byteRead = fis.read(buffer);
+                if (byteRead == -1)
+                    break;
                 dos.write(buffer, 0, byteRead);
                 dos.flush();
-            } while(byteRead != 0);
+            }
             fis.close();
         }
         dos.close();
@@ -212,8 +228,10 @@ public class Peer {
         // send chunk request
         DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
 
-        dos.writeUTF(fileName+String.valueOf(i));
-        dos.flush();
+        dos.writeByte(6);
+        dos.writeUTF(fileName);
+        dos.writeByte(i);
+
 
         // recv chunk data
         InputStream in = socket.getInputStream();
@@ -222,11 +240,14 @@ public class Peer {
         DataOutputStream dosFile = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)));
         int byteRead;
         byte[] buffer = new byte[BUFFER_SIZE];
-        do {
+        while (true) {
             byteRead = in.read(buffer);
+            System.out.println(byteRead);
+            if (byteRead == -1)
+                break;
             dosFile.write(buffer, 0, byteRead);
             dosFile.flush();
-        } while(byteRead != 0);
+        }
         System.out.println(String.format("Downloaded Chunk %d of %s", i, fileName));
         dosFile.close();
         in.close();

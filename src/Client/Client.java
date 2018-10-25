@@ -18,10 +18,12 @@ public class Client {
     final String DIRECTORY = "./src/files/";
 
     public static void main(String[] args) throws Exception {
-        new Client();
+        Client c = new Client();
+        c.run();
+
     }
 
-    public Client() throws Exception {
+    public void run() throws Exception {
         System.out.println("Client connecting to tracker on port " + SERVER_PORT + "\n");
 
         Peer peer = new Peer();
@@ -43,7 +45,7 @@ public class Client {
             }
         }
 
-        new Thread(){
+        Thread t = new Thread(){
             public void run(){
                 try {
                     peer.server();
@@ -51,7 +53,10 @@ public class Client {
                     e.printStackTrace();
                 }
             }
-        }.start();
+        };
+        t.setDaemon(true);
+        t.start();
+
 
         Scanner scanner = new Scanner(System.in);
         while (true) {
@@ -62,6 +67,7 @@ public class Client {
             System.out.println("4: Update server on a file");
             System.out.println("5: Disconnect");
             option = scanner.nextInt();
+            scanner.nextLine();
             if (option == 1) {
                 System.out.println("listing files from server...");
             }
@@ -76,6 +82,7 @@ public class Client {
             }
 
             if (option == 4) {
+                System.out.println("Enter filename: ");
                 String filename;
                 filename = scanner.nextLine();
                 System.out.println("Initial announcement of a file");

@@ -11,8 +11,9 @@ public class fInfo {
 //    private String checksum;
     private ArrayList<cInfo> chunkList;
 
-    public fInfo() {
+    public fInfo(String filename) {
         chunkList = new ArrayList<>();
+        this.filename = filename;
     }
 
 
