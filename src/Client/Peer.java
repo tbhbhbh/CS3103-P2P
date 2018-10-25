@@ -1,13 +1,6 @@
 package Client;
 
-import java.io.BufferedOutputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -39,11 +32,9 @@ public class Peer {
     }
 
     // getters
-    public int getPeerId() { return peerId; }
     public int getPort() { return port; }
 
     // setters
-    public void setPeerId() { this.peerId = peerId; }
     public void setPort() { this.port = port; }
 
     /*
@@ -137,6 +128,30 @@ public class Peer {
         while (true) {
             Socket socket = serverSocket.accept();
             System.out.println("Accepted connection from peer\n");
+
+            //read input
+            DataInputStream dIn = new DataInputStream(socket.getInputStream());
+            DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
+
+            byte option = dIn.readByte();
+
+            if (option == 6) { //someone requesting a file
+                String filename = dIn.readUTF();
+                byte chunkID = dIn.readByte();
+
+                File f = new File(directory+filename+"/"+filename+chunkID);
+                FileInputStream fis = new FileInputStream(f);
+                byte[] buffer = new byte[BUFFER_SIZE];
+                int byteRead = fis.read(buffer);
+                dOut.write(buffer, 0, byteRead);
+                dOut.flush();
+
+
+                fis.close();
+            }
+            dOut.close();
+            dIn.close();
+            socket.close();
         }
     }
 

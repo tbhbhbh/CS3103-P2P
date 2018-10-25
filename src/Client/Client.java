@@ -42,6 +42,16 @@ public class Client {
             }
         }
 
+        new Thread(){
+            public void run(){
+                try {
+                    peer.server();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }.start();
+
         Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.println("\nSelect option: ");
