@@ -12,10 +12,9 @@ public class Client {
     * 
     *
      */
-    private final int SERVER_PORT = 8100;
+    private final int SERVER_PORT = 8080;
     private Socket clientSocket;
     private int option;
-    private final String directory = "../local directory";
 
     public static void main(String[] args) throws IOException {
         new Client();
@@ -32,10 +31,16 @@ public class Client {
             System.out.println(e);
         }
 
-        File folder = new File(directory);
-        ArrayList<String> fileNames = new ArrayList<>();
-        for (final File file : folder.listFiles())
-            fileNames.add(file.getName());
+        File folder = new File("./src/files");
+        File[] listOfFiles = folder.listFiles();
+
+        for (int i = 0; i < listOfFiles.length; i++) {
+            if (listOfFiles[i].isFile()) {
+                System.out.println("File " + listOfFiles[i].getName());
+            } else if (listOfFiles[i].isDirectory()) {
+                System.out.println("Directory " + listOfFiles[i].getName());
+            }
+        }
 
 
         peer.register(clientSocket);
