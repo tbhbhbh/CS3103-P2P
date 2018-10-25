@@ -1,8 +1,9 @@
 package Commons;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
-public class fInfo {
+public class fInfo implements Serializable {
     /**
      * Contain Information of the File such as chunks and peer info
      */

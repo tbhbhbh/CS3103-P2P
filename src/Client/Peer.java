@@ -9,6 +9,8 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Random;
 
 import Commons.fInfo;
@@ -94,8 +96,10 @@ public class Peer {
 
         System.out.println("Registering peer");
         DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
-        //Option to register in the server (new peer)
+        //Option to register in the server (new peer) with port number
         dOut.writeByte(0);
+        dOut.flush();
+        dOut.writeInt(port);
         dOut.flush();
 
         //File name
@@ -106,16 +110,16 @@ public class Peer {
         dOut.writeByte(2);
         dOut.writeInt(numChunks);
         dOut.flush();
-        //port number
-        dOut.writeByte(3);
-        dOut.writeInt(port);
-        dOut.flush();
+//        //port number (done by option 0)
+//        dOut.writeByte(3);
+//        dOut.writeInt(port);
+//        dOut.flush();
         //end connection
         dOut.writeByte(-1);
         dOut.flush();
 
         dOut.close();
-        socket.close();
+//        socket.close();
     }
 
     //Uploading
@@ -257,7 +261,33 @@ public class Peer {
         // TODO: inform tracker of completed chunk
     }
 
+    public void getDir(Socket socket) throws Exception {
+        DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
+        // option to get file listing
+        dOut.writeByte(4);
+        dOut.flush();
 
+        ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+        Object obj = ois.readObject();
+        Iterator<String> fileListing = ((List<String>) obj).iterator();
+        while(fileListing.hasNext()) {
+            System.out.println(fileListing.next());
+        }
+    }
+
+    public void getFile(Socket socket) throws  Exception {
+        DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
+        // Option to get file Info
+        dOut.writeByte(5);
+        dOut.writeUTF("test");
+        dOut.flush();
+
+        ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+        Object obj = ois.readObject();
+        fInfo fileInfo = (fInfo)obj;
+        this.fInfo = fileInfo;
+        System.out.println("Fetched File Info!");
+    }
 
 
 }

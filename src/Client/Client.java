@@ -70,10 +70,12 @@ public class Client {
             scanner.nextLine();
             if (option == 1) {
                 System.out.println("listing files from server...");
+                peer.getDir(clientSocket);
             }
 
             if (option == 2) {
                 System.out.println("Requesting file from server on how many chunks and peer info");
+                peer.getFile(clientSocket);
             }
 
             if (option == 3) {

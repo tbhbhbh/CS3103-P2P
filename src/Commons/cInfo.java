@@ -1,10 +1,11 @@
 package Commons;
 
+import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Random;
 
-public class cInfo {
+public class cInfo implements Serializable {
 
     private int chunkID;
 //    private String checksum;
