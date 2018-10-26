@@ -37,7 +37,6 @@ public class Client {
         File folder = new File(DIRECTORY);
         File[] listOfFiles = folder.listFiles();
 
-<<<<<<< Updated upstream
         for (int i = 0; i < listOfFiles.length; i++) {
             if (listOfFiles[i].isFile()) {
                 System.out.println("File " + listOfFiles[i].getName());
@@ -58,9 +57,6 @@ public class Client {
         t.setDaemon(true);
         t.start();
 
-=======
-        peer.register(clientSocket);
->>>>>>> Stashed changes
 
         Scanner scanner = new Scanner(System.in);
         while (true) {
@@ -74,6 +70,7 @@ public class Client {
             scanner.nextLine();
             if (option == 1) {
                 System.out.println("listing files from server...");
+                peer.requestListOfFiles(clientSocket);
             }
 
             if (option == 2) {

@@ -29,7 +29,7 @@ public class Peer {
 
     public ServerSocket serverSocket;
 
-    public Peer(ArrayList<String> listOfFiles) {
+    public Peer() {
 
         this.port = generatePort();
 
@@ -165,6 +165,12 @@ public class Peer {
             dIn.close();
             socket.close();
         }
+    }
+
+    public void requestListOfFiles(Socket socket) throws IOException {
+        DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
+        dOut.writeByte(1);
+        dOut.flush();
     }
 
     // Downloading

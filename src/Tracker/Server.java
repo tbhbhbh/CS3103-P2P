@@ -4,10 +4,13 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Array;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Hashtable;
+import java.util.Map;
 
 public class Server {
 
@@ -20,7 +23,7 @@ public class Server {
     *
      */
     private static Hashtable<String, ArrayList<String>> fileNameToChunksIndex;
-    private static Hashtable<String, ArrayList<String>> chunksToPeerIndex;
+    private static Hashtable<String, ArrayList<InetSocketAddress>> chunksToPeerIndex;
     private static ArrayList<Integer> peerIPList;
     private static ArrayList<Integer> peerPort;
 
@@ -56,6 +59,7 @@ public class Server {
 
             byte option = dIn.readByte();
             boolean isEndOfData = false;
+            System.out.println(option);
 
             switch (option) {
                 //initial announcement - register a file
@@ -83,11 +87,11 @@ public class Server {
                     }
 
                     registerFile(fileName, numChunks, peerIP, peerPort);
-                    break;
 
                 // register a chunk
                 // TODO: registering chunk
                 case 1:
+                    listDirectory();
 
                 // TODO: peer/client requesting for file
                 case 2:
@@ -117,6 +121,29 @@ public class Server {
                 chunkNameList.add(chunkName);
             }
             fileNameToChunksIndex.put(fileName, chunkNameList);
+        }
+    }
+
+    public static void listDirectory() {
+        for (Map.Entry<String, ArrayList<String>> fileNameToChunksIndex:
+                fileNameToChunksIndex.entrySet()) {
+            System.out.println("File name: " + fileNameToChunksIndex.getKey());
+            System.out.println("Number of chunks: " + fileNameToChunksIndex.getValue().size());
+
+            ArrayList<String> chunkIDList = fileNameToChunksIndex.getValue();
+            for (int i = 0; i < chunkIDList.size(); i++) {
+                String chunkID = chunkIDList.get(i);
+                ArrayList<InetSocketAddress> peerList = chunksToPeerIndex.get(chunkID);
+                for (int j = 0; j < peerList.size(); j++) {
+                    if (j == 1) {
+                        char[] whiteSpaces = new char[chunkID.length()];
+                        Arrays.fill(whiteSpaces, ' ');
+                        chunkID = new String(whiteSpaces);
+                    }
+                    System.out.println(chunkID + " - " + peerList.get(j).getHostName());
+                }
+            }
+
         }
     }
 
