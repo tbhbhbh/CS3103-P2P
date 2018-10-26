@@ -11,15 +11,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Random;
 
-import Commons.fInfo;
-import Commons.cInfo;
+import Commons.FileInfo;
+import Commons.ChunkInfo;
 
 public class Peer {
 
-    private final String OUTPUT_DIRECTORY = "./src/p2pdonload/";
+    private final String OUTPUT_DIRECTORY = "./src/p2p_downloads/";
     private final String CHUNK_DIRECTORY = OUTPUT_DIRECTORY + "chunks/";
     private final int BUFFER_SIZE = 1024;
-    private fInfo fInfo;
+    private FileInfo FileInfo;
     private int peerId;
     private int port;
     private int numChunks;
@@ -166,27 +166,27 @@ public class Peer {
 
     // Downloading
     public void download() throws Exception {
-        fInfo = new fInfo("test");
+        FileInfo = new FileInfo("test");
         for (int i= 0; i< 14 ; i++) {
-            cInfo cInfo = new cInfo(i);
-            cInfo.addPeer(new InetSocketAddress("localhost", 8000));
-            fInfo.addChunk(cInfo);
+            ChunkInfo ChunkInfo = new ChunkInfo(i);
+            ChunkInfo.addPeer(new InetSocketAddress("localhost", 8000));
+            FileInfo.addChunk(ChunkInfo);
         }
 
-        if (fInfo == null) {
+        if (FileInfo == null) {
             System.out.println("Request file from server first!");
             return;
         }
 
-        String filename = fInfo.getFilename();
+        String filename = FileInfo.getFilename();
         Path directory = Files.createDirectories(Paths.get(CHUNK_DIRECTORY, filename));
 
         // download chunks from peers
 
-        numChunks = fInfo.getNumOfChunks();
+        numChunks = FileInfo.getNumOfChunks();
         // Single Thread for now...
         for (int i = 0; i < numChunks; i++) {
-            cInfo chunk = fInfo.getChunk(i);
+            ChunkInfo chunk = FileInfo.getChunk(i);
             int chunkID = chunk.getChunkID();
             InetSocketAddress peerSocket = chunk.getRdmPeer();
             InetAddress peerAddress = peerSocket.getAddress();

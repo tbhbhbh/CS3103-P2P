@@ -4,13 +4,13 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Random;
 
-public class cInfo {
+public class ChunkInfo {
 
     private int chunkID;
 //    private String checksum;
     private ArrayList<InetSocketAddress> peers = new ArrayList<>();
 
-    public cInfo(int chunkID) {
+    public ChunkInfo(int chunkID) {
         this.chunkID = chunkID;
     }
 

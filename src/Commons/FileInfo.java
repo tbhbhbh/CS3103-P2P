@@ -2,16 +2,16 @@ package Commons;
 
 import java.util.ArrayList;
 
-public class fInfo {
+public class FileInfo {
     /**
      * Contain Information of the File such as chunks and peer info
      */
 
     private String filename;
 //    private String checksum;
-    private ArrayList<cInfo> chunkList;
+    private ArrayList<ChunkInfo> chunkList;
 
-    public fInfo(String filename) {
+    public FileInfo(String filename) {
         chunkList = new ArrayList<>();
         this.filename = filename;
     }
@@ -21,11 +21,11 @@ public class fInfo {
         return chunkList.size();
     }
 
-    public void addChunk(cInfo chunk) {
+    public void addChunk(ChunkInfo chunk) {
         chunkList.add(chunk);
     }
 
-    public cInfo getChunk(int i) {
+    public ChunkInfo getChunk(int i) {
         return chunkList.get(i);
     }
 
