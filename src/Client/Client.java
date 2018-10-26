@@ -12,18 +12,17 @@ public class Client {
     *
     *
      */
-    private final int SERVER_PORT = 8080;
-    private Socket clientSocket;
-    private int option;
-    final String DIRECTORY = "./src/files/";
+    private static final int SERVER_PORT = 8080;
+    private static Socket clientSocket;
+    private static int option;
+    private final static String DIRECTORY = "./src/files/";
 
-    public static void main(String[] args) throws Exception {
-        Client c = new Client();
-        c.run();
-
+    public Client() throws Exception {
+        run();
     }
 
-    public void run() throws Exception {
+    private static void run() throws Exception {
+        System.out.println("Starting P2P Client...");
         System.out.println("Client connecting to tracker on port " + SERVER_PORT + "\n");
 
         Peer peer = new Peer();
@@ -45,7 +44,7 @@ public class Client {
             }
         }
 
-        Thread t = new Thread(){
+        Thread t = new Thread() {
             public void run(){
                 try {
                     peer.server();
@@ -102,7 +101,7 @@ public class Client {
         }
     }
 
-    public void disconnect(Socket clientSocket){
+    private static void disconnect(Socket clientSocket){
         try {
             clientSocket.close();
         } catch (IOException e) {

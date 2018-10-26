@@ -7,7 +7,7 @@ import java.util.ArrayList;
 
 public class Server {
 
-    /*
+    /*a
     * 1) initial announcement
     * peerIP
     * peerPort
@@ -16,38 +16,29 @@ public class Server {
     *
      */
 
-    private final int LISTENING_PORT = 8080;
-    private ServerSocket serverSocket;
+    private static final int LISTENING_PORT = 8080;
+    private static ServerSocket serverSocket;
 
-    private ArrayList<String> fileList;
+    private static ArrayList<String> fileList;
 
-    public static void main(String[] args) throws Exception {
-        System.out.println("Starting P2P server\n");
-        new Server();
+    public Server() throws Exception {
+        run();
     }
 
-
-    public Server() {
+    private static void run() throws Exception {
+        System.out.println("Starting P2P Server...");
         System.out.println("Init server on port " + LISTENING_PORT + "\n");
 
-        //try to obtain server socket
-        try {
-            ServerSocket serverSocket = new ServerSocket(LISTENING_PORT);
+        ServerSocket serverSocket = new ServerSocket(LISTENING_PORT);
 
-            while (true) {
-                System.out.println("Waiting for peer\n");
-                Socket clientSocket = serverSocket.accept();
-                handleClientSocket(clientSocket);
-
-            }
-        } catch (IOException e) {
-            System.out.println(e);
+        while (true) {
+            System.out.println("Waiting for peer\n");
+            Socket clientSocket = serverSocket.accept();
+            handleClientSocket(clientSocket);
         }
-
-
     }
 
-    private void handleClientSocket(Socket clientSocket) {
+    private static void handleClientSocket(Socket clientSocket) {
         System.out.println("Client connected\n");
     }
 
