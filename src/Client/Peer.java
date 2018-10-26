@@ -9,6 +9,7 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Random;
 
 import Commons.fInfo;
@@ -22,23 +23,15 @@ public class Peer {
     private fInfo fInfo;
     private int peerId;
     private int port;
-<<<<<<< Updated upstream
     private int numChunks;
     
     final String directory = "./src/files/";
-=======
-    private ArrayList<String> listOfFiles;
->>>>>>> Stashed changes
 
     public ServerSocket serverSocket;
 
     public Peer(ArrayList<String> listOfFiles) {
 
         this.port = generatePort();
-<<<<<<< Updated upstream
-=======
-        this.listOFFiles = listOfFiles;
->>>>>>> Stashed changes
 
     }
 
