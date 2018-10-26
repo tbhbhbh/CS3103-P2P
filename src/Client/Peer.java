@@ -18,7 +18,7 @@ import Commons.cInfo;
 
 public class Peer {
 
-    private final String OUTPUT_DIRECTORY = "./src/p2pdonload/";
+    private final String OUTPUT_DIRECTORY = "./src/p2pdownload/";
     private final String CHUNK_DIRECTORY = OUTPUT_DIRECTORY + "chunks/";
     private final int BUFFER_SIZE = 1024;
     private fInfo fInfo;
@@ -170,12 +170,12 @@ public class Peer {
 
     // Downloading
     public void download() throws Exception {
-        fInfo = new fInfo("test");
-        for (int i= 0; i< 14 ; i++) {
-            cInfo cInfo = new cInfo(i);
-            cInfo.addPeer(new InetSocketAddress("localhost", 8000));
-            fInfo.addChunk(cInfo);
-        }
+//        fInfo = new fInfo("test");
+//        for (int i= 0; i< 14 ; i++) {
+//            cInfo cInfo = new cInfo(i);
+//            cInfo.addPeer(new InetSocketAddress("localhost", 8000));
+//            fInfo.addChunk(cInfo);
+//        }
 
         if (fInfo == null) {
             System.out.println("Request file from server first!");

@@ -109,10 +109,10 @@ public class Server {
             if (option == 4) {
 
                 List<String> filenames = fileList.stream().map((x) -> x.getFilename()).collect(Collectors.toList());
-                Iterator<String> itr = filenames.iterator();
-                while (itr.hasNext()) {
-                    System.out.println(itr.next());
-                }
+//                Iterator<String> itr = filenames.iterator();
+//                while (itr.hasNext()) {
+//                    System.out.println(itr.next());
+//                }
                 ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
                 oos.writeObject(filenames);
                 oos.flush();
@@ -124,7 +124,10 @@ public class Server {
                 oos.writeObject(fileInfo);
                 oos.flush();
             }
-            break;
+
+            if (option == -1) {
+                break;
+            }
 
         }
         dOut.close();

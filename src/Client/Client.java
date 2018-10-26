@@ -74,6 +74,8 @@ public class Client {
             }
 
             if (option == 2) {
+                System.out.println("Enter filename: ");
+                String filename;
                 System.out.println("Requesting file from server on how many chunks and peer info");
                 peer.getFile(clientSocket);
             }
