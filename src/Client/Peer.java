@@ -1,6 +1,10 @@
 package Client;
 
+import static Client.Client.DIRECTORY;
+import static Client.Client.INPUT_DIRECTORY;
+import static Client.Client.OUTPUT_DIRECTORY;
 import java.io.*;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -9,44 +13,50 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-import Commons.fInfo;
-import Commons.cInfo;
+import Commons.Packet;
+import Commons.QueryDirPacket;
+import Commons.QueryFilePacket;
+import Commons.RegisterPacket;
+import Commons.RequestPacket;
+import Commons.UpdatePacket;
+import Commons.FileInfo;
+import Commons.ChunkInfo;
+
 
 public class Peer {
 
-    private final String OUTPUT_DIRECTORY = "./src/p2pdownload/";
     private final String CHUNK_DIRECTORY = OUTPUT_DIRECTORY + "chunks/";
     private final int BUFFER_SIZE = 1024;
-    private fInfo fInfo;
+    private FileInfo FileInfo;
     private int peerId;
     private int port;
     private int numChunks;
-    final String directory = "./src/files/";
 
     public ServerSocket serverSocket;
 
     public Peer() {
         this.port = generatePort();
-
+        initDirectories();
     }
 
-    // getters
-    public int getPort() { return port; }
-
-    // setters
-    public void setPort() { this.port = port; }
+    private void initDirectories() {
+        new File(DIRECTORY).mkdir();
+        new File(INPUT_DIRECTORY).mkdir();
+        new File(OUTPUT_DIRECTORY).mkdir();
+        new File(CHUNK_DIRECTORY).mkdir();
+    }
 
     /*
      * Randomly generates a port number for client to use for their socket.
      */
     private int generatePort() {
         Random r = new Random();
-        return r.nextInt(9000-8100) + 8100;
-//        return 8000;
+        return r.nextInt(9000 - 8100) + 8100;
     }
 
 
@@ -54,36 +64,36 @@ public class Peer {
      * Peer updates server of a file
      *
      */
-    public void updateServer(Socket socket, String fileName) throws IOException {
+    public void updateServer(ObjectInputStream ois, ObjectOutputStream oos, String fileName) throws IOException {
 
-        final long sourceSize = Files.size(Paths.get(directory + fileName));
-        final long bytesPerSplit =  1024L; //1 chunk = 1024 bytes
+        final long sourceSize = Files.size(Paths.get(INPUT_DIRECTORY + fileName));
+        final long bytesPerSplit = 1024L; //1 chunk = 1024 bytes
         final int numChunks = (int) (sourceSize / bytesPerSplit);
         final long remainingBytes = sourceSize % bytesPerSplit;
         int position = 0;
         int index = 0;
 
         //create a folder with filename
-        String foldername = "c"+fileName;
-        System.out.println(new File(directory + foldername).mkdirs());
+        String foldername = "c" + fileName;
+        System.out.println(new File(INPUT_DIRECTORY + foldername).mkdirs());
 
 
         //split file
-        try (RandomAccessFile sourceFile = new RandomAccessFile(directory + fileName, "r");
+        try (RandomAccessFile sourceFile = new RandomAccessFile(INPUT_DIRECTORY + fileName, "r");
              FileChannel sourceChannel = sourceFile.getChannel()) {
             for (; position < numChunks; position++) {
-                Path filePart = Paths.get(directory + foldername + "/" + fileName + index);
+                Path filePart = Paths.get(INPUT_DIRECTORY + foldername + "/" + fileName + index);
                 try (RandomAccessFile toFile = new RandomAccessFile(filePart.toFile(), "rw");
-                    FileChannel toChannel = toFile.getChannel()) {
+                     FileChannel toChannel = toFile.getChannel()) {
                     sourceChannel.position(position * bytesPerSplit);
-                    toChannel.transferFrom(sourceChannel,  0, bytesPerSplit);
+                    toChannel.transferFrom(sourceChannel, 0, bytesPerSplit);
 
                 }
                 index++;
             }
 
             if (remainingBytes != 0) {
-                Path filePart = Paths.get(directory + foldername + "/" + fileName + index);
+                Path filePart = Paths.get(INPUT_DIRECTORY + foldername + "/" + fileName + index);
                 try (RandomAccessFile toFile = new RandomAccessFile(filePart.toFile(), "rw");
                      FileChannel toChannel = toFile.getChannel()) {
                     sourceChannel.position(position * bytesPerSplit);
@@ -95,35 +105,17 @@ public class Peer {
 
 
         System.out.println("Registering peer");
-        DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
-        //Option to register in the server (new peer) with port number
-        dOut.writeByte(0);
-        dOut.flush();
-        dOut.writeInt(port);
-        dOut.flush();
+        RegisterPacket regPacket = new RegisterPacket(port);
+        oos.writeObject(regPacket);
+        oos.flush();
 
-        //File name
-        dOut.writeByte(1);
-        dOut.writeUTF(fileName);
-        dOut.flush();
-        //Number of chunks
-        dOut.writeByte(2);
-        dOut.writeInt(numChunks);
-        dOut.flush();
-//        //port number (done by option 0)
-//        dOut.writeByte(3);
-//        dOut.writeInt(port);
-//        dOut.flush();
-        //end connection
-        dOut.writeByte(-1);
-        dOut.flush();
-
-        dOut.close();
-//        socket.close();
+        UpdatePacket upPacket = new UpdatePacket(fileName, numChunks);
+        oos.writeObject(upPacket);
+        oos.flush();
     }
 
     //Uploading
-    public void server() throws IOException {
+    public void server() throws Exception {
         try {
             serverSocket = new ServerSocket(port);
             System.out.println(String.format("Peer serving %d", port));
@@ -136,61 +128,41 @@ public class Peer {
             Socket socket = serverSocket.accept();
             System.out.println("Accepted connection from peer\n");
 
-            //read input
-            DataInputStream dIn = new DataInputStream(socket.getInputStream());
-            DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
+            ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+            ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 
-            byte option = dIn.readByte();
-
-            if (option == 6) { //someone requesting a file
-                String filename = dIn.readUTF();
-                System.out.println(String.format("filename: %s", filename));
-                byte chunkID = dIn.readByte();
-                System.out.println(String.format("chunkID:%d", chunkID));
-                File f = new File(directory+"c"+filename+"/"+filename+chunkID);
-                FileInputStream fis = new FileInputStream(f);
-                byte[] buffer = new byte[BUFFER_SIZE];
-                long fileSize = f.length();
-                while (fileSize > 0) {
-                    int byteRead = fis.read(buffer);
-                    dOut.write(buffer, 0, byteRead);
-                    dOut.flush();
-                    fileSize -= byteRead;
-                    System.out.println(String.format("Sent byte: %d", byteRead));
-                }
-
-
-                fis.close();
-            }
-            dOut.close();
-            dIn.close();
+            Object obj = ois.readObject();
+            RequestPacket<ArrayList<String>> request = (RequestPacket<ArrayList<String>>) obj;
+            ArrayList<String> params = request.getPayload();
+            String filename = params.get(0);
+            int chunkID = Integer.parseInt(params.get(1));
+            File f = new File(INPUT_DIRECTORY + "c" + filename + "/" + filename + chunkID);
+            FileInputStream fis = new FileInputStream(f);
+            byte[] data = fis.readAllBytes();
+            fis.close();
+            RequestPacket<byte[]> response = new RequestPacket<>(1, data);
+            oos.writeObject(response);
             socket.close();
         }
     }
 
     // Downloading
-    public void download() throws Exception {
-//        fInfo = new fInfo("test");
-//        for (int i= 0; i< 14 ; i++) {
-//            cInfo cInfo = new cInfo(i);
-//            cInfo.addPeer(new InetSocketAddress("localhost", 8000));
-//            fInfo.addChunk(cInfo);
-//        }
+    public void download(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
 
-        if (fInfo == null) {
+        if (FileInfo == null) {
             System.out.println("Request file from server first!");
             return;
         }
 
-        String filename = fInfo.getFilename();
+        String filename = FileInfo.getFilename();
         Path directory = Files.createDirectories(Paths.get(CHUNK_DIRECTORY, filename));
 
         // download chunks from peers
 
-        numChunks = fInfo.getNumOfChunks();
+        numChunks = FileInfo.getNumOfChunks();
         // Single Thread for now...
         for (int i = 0; i < numChunks; i++) {
-            cInfo chunk = fInfo.getChunk(i);
+            ChunkInfo chunk = FileInfo.getChunk(i);
             int chunkID = chunk.getChunkID();
             InetSocketAddress peerSocket = chunk.getRdmPeer();
             InetAddress peerAddress = peerSocket.getAddress();
@@ -202,12 +174,12 @@ public class Peer {
         System.out.println("Combining all the chunks together...");
 
         // merge chunks together
-        FileOutputStream fos = new FileOutputStream(OUTPUT_DIRECTORY+filename);
+        FileOutputStream fos = new FileOutputStream(OUTPUT_DIRECTORY + filename);
         DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(fos));
 
         byte[] buffer = new byte[BUFFER_SIZE];
-        for (int i = 0; i<numChunks; i++) {
-            FileInputStream fis = new FileInputStream(new File(directory.toString(),String.valueOf(i)));
+        for (int i = 0; i < numChunks; i++) {
+            FileInputStream fis = new FileInputStream(new File(directory.toString(), String.valueOf(i)));
             int byteRead;
             while (true) {
                 byteRead = fis.read(buffer);
@@ -221,72 +193,75 @@ public class Peer {
         dos.close();
         System.out.println(String.format("%s successfully combined from its chunks", filename));
 
+        UpdatePacket upPacket = new UpdatePacket(filename, numChunks);
+        oos.writeObject(upPacket);
+        oos.flush();
         // TODO: checksum
 
     }
 
-    public void downloadFromPeer(Path directory, InetAddress peerAddress, int port, String fileName, int i)  throws IOException {
+    public void downloadFromPeer(Path directory, InetAddress peerAddress, int port, String fileName, int i) throws IOException, ClassNotFoundException {
         // connect to peer
         Socket socket = new Socket(peerAddress, port);
 
         // send chunk request
-        DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+        ArrayList<String> params = new ArrayList<>();
+        params.add(fileName);
+        params.add(String.valueOf(i));
+        RequestPacket<ArrayList<String>> requestPacket = new RequestPacket<>(0, params);
+        ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+        oos.writeObject(requestPacket);
+        oos.flush();
 
-        dos.writeByte(6);
-        dos.writeUTF(fileName);
-        dos.writeByte(i);
+        ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+        RequestPacket<byte[]> response = (RequestPacket<byte[]>) ois.readObject();
+        byte[] data = response.getPayload();
 
-
-        // recv chunk data
-        InputStream in = socket.getInputStream();
-
-        File f = new File(directory.toString(),String.valueOf(i));
+        File f = new File(directory.toString(), String.valueOf(i));
         DataOutputStream dosFile = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)));
-        int byteRead;
-        byte[] buffer = new byte[BUFFER_SIZE];
-        while (true) {
-            byteRead = in.read(buffer);
-            System.out.println(byteRead);
-            if (byteRead == -1)
-                break;
-            dosFile.write(buffer, 0, byteRead);
-            dosFile.flush();
-        }
-        System.out.println(String.format("Downloaded Chunk %d of %s", i, fileName));
+        dosFile.write(data);
+        dosFile.flush();
         dosFile.close();
-        in.close();
-        dos.close();
+        System.out.println(String.format("Downloaded Chunk %d of %s", i, fileName));
+        ois.close();
+        oos.close();
         socket.close();
 
         // TODO: inform tracker of completed chunk
     }
 
-    public void getDir(Socket socket) throws Exception {
-        DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
-        // option to get file listing
-        dOut.writeByte(4);
-        dOut.flush();
+    public void getDir(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
+        QueryDirPacket queryDirPacket = new QueryDirPacket();
+        oos.writeObject(queryDirPacket);
+        oos.flush();
 
-        ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
         Object obj = ois.readObject();
-        Iterator<String> fileListing = ((List<String>) obj).iterator();
-        while(fileListing.hasNext()) {
+        QueryDirPacket replyPkt = (QueryDirPacket) obj;
+        Object payload = replyPkt.getPayload();
+        Iterator<String> fileListing = ((List<String>) payload).iterator();
+        while (fileListing.hasNext()) {
             System.out.println(fileListing.next());
         }
+
     }
 
-    public void getFile(Socket socket) throws  Exception {
-        DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
-        // Option to get file Info
-        dOut.writeByte(5);
-        dOut.writeUTF("test");
-        dOut.flush();
-
-        ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+    public void getFile(ObjectInputStream ois, ObjectOutputStream oos, String filename) throws Exception {
+        QueryFilePacket queryDirPacket = new QueryFilePacket(filename);
+        oos.writeObject(queryDirPacket);
+        oos.flush();
         Object obj = ois.readObject();
-        fInfo fileInfo = (fInfo)obj;
-        this.fInfo = fileInfo;
+        QueryFilePacket replyPkt = (QueryFilePacket) obj;
+        Object payload = replyPkt.getPayload();
+        FileInfo fileInfo = (FileInfo) payload;
+        this.FileInfo = fileInfo;
         System.out.println("Fetched File Info!");
+
+    }
+
+    public void shutdown(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
+        Packet pkt = new Packet(5, 0);
+        oos.writeObject(pkt);
+        oos.flush();
     }
 
 
