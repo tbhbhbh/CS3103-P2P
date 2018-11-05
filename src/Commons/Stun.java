@@ -4,12 +4,12 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.nio.ByteBuffer;
 
 public class Stun {
-
+    public static void main(String[] args) throws Exception{
+        holePunch(5000);
+    }
     public static InetSocketAddress holePunch(int peerPort) throws Exception{
         DatagramSocket dsock = new DatagramSocket(peerPort);
         dsock.connect(InetAddress.getByName("74.125.200.127"), 19305);
@@ -51,15 +51,15 @@ public class Stun {
                 if (attrType == 0x0020) {
                     short port = bb1.position(i+6).getShort();
                     port ^= 0x2112;
-                    System.out.println(port);
-                    System.out.println("position: "+ bb1.position());
+//                    System.out.println(port);
+//                    System.out.println("position: "+ bb1.position());
 
                     byte ip1 = bb1.get();
                     byte ip2 = bb1.get();
                     byte ip3 = bb1.get();
                     byte ip4 = bb1.get();
 
-                    System.out.println(ip1^0xffffff21);
+//                    System.out.println(ip1^0xffffff21);
 
                     int octlet1 = ip1^0xffffff21;
                     int octlet2 = ip2^0xffffff12;
@@ -67,10 +67,11 @@ public class Stun {
                     int octlet4 = ip4^0xffffff42;
 
 
-                    System.out.println("position: "+ bb1.position());
-                    System.out.println(String.format("%d.%d.%d.%d", octlet1,octlet2,octlet3,octlet4));
+//                    System.out.println("position: "+ bb1.position());
+                    System.out.println(String.format("%d.%d.%d.%d:%d", octlet1, octlet2, octlet3, octlet4, port));
                     InetSocketAddress inetSocketAddress = new InetSocketAddress(
                             String.format("%d.%d.%d.%d", octlet1,octlet2,octlet3,octlet4), port);
+                    dsock.close();
                     return inetSocketAddress;
                 }
                 i += (4  + attrLen);

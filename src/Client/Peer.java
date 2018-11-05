@@ -4,11 +4,13 @@ import static Client.Client.DIRECTORY;
 import static Client.Client.INPUT_DIRECTORY;
 import static Client.Client.OUTPUT_DIRECTORY;
 import java.io.*;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,6 +25,7 @@ import Commons.QueryDirPacket;
 import Commons.QueryFilePacket;
 import Commons.RegisterPacket;
 import Commons.RequestPacket;
+import Commons.Stun;
 import Commons.UpdatePacket;
 import Commons.FileInfo;
 import Commons.ChunkInfo;
@@ -31,13 +34,14 @@ import Commons.ChunkInfo;
 public class Peer {
 
     private final String CHUNK_DIRECTORY = OUTPUT_DIRECTORY + "chunks/";
-    private final int BUFFER_SIZE = 1024;
+    private final int BUFFER_SIZE = 1500;
     private FileInfo FileInfo;
     private int peerId;
     private int port;
     private int numChunks;
 
     public ServerSocket serverSocket;
+    public DatagramSocket dataSocket;
 
     public Peer() {
         this.port = generatePort();
@@ -118,32 +122,71 @@ public class Peer {
     public void server() throws Exception {
         try {
             serverSocket = new ServerSocket(port);
+            Stun.holePunch(port);
+            dataSocket = new DatagramSocket(port);
             System.out.println(String.format("Peer serving %d", port));
         } catch (Exception e) {
             System.out.println(e);
             return;
         }
-
         while (true) {
-            Socket socket = serverSocket.accept();
-            System.out.println("Accepted connection from peer\n");
+            DatagramPacket dataPkt = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE);
+            dataSocket.receive(dataPkt);
+            byte[] buffer = dataPkt.getData();
 
-            ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-            ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+            ByteArrayInputStream bais = new ByteArrayInputStream(buffer);
+            ObjectInputStream ois = new ObjectInputStream(bais);
+//            try {
+                Object readObject = ois.readObject();
+                if (readObject instanceof RequestPacket) {
+                    RequestPacket<ArrayList<String>> request = (RequestPacket) readObject;
+                    ArrayList<String> params = request.getPayload();
+                    String filename = params.get(0);
+                    int chunkID = Integer.parseInt(params.get(1));
+                    File f = new File(INPUT_DIRECTORY + "c" + filename + "/" + filename + chunkID);
+                    FileInputStream fis = new FileInputStream(f);
+                    byte[] fileData = fis.readAllBytes();
+                    fis.close();
+                    RequestPacket<byte[]> response = new RequestPacket<>(1, fileData);
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    ObjectOutputStream oos = new ObjectOutputStream(baos);
+                    oos.writeObject(response);
+                    byte[] data = baos.toByteArray();
 
-            Object obj = ois.readObject();
-            RequestPacket<ArrayList<String>> request = (RequestPacket<ArrayList<String>>) obj;
-            ArrayList<String> params = request.getPayload();
-            String filename = params.get(0);
-            int chunkID = Integer.parseInt(params.get(1));
-            File f = new File(INPUT_DIRECTORY + "c" + filename + "/" + filename + chunkID);
-            FileInputStream fis = new FileInputStream(f);
-            byte[] data = fis.readAllBytes();
-            fis.close();
-            RequestPacket<byte[]> response = new RequestPacket<>(1, data);
-            oos.writeObject(response);
-            socket.close();
+                    //Send data
+
+                    dataSocket.send(new DatagramPacket(data, data.length, dataPkt.getSocketAddress()));
+                    System.out.println(String.format("Sent %d Datagram of size: %d", chunkID, data.length));
+                    System.out.println(String.format("Sent to %s:%d", dataPkt.getAddress(), dataPkt.getPort()));
+                } else {
+                    System.out.println("The received object is not of type RequestPacket!");
+                }
+//            } catch (Exception e) {
+//                System.out.println(e);
+//                System.out.println("No object could be read from the received UDP datagram.");
+//            }
         }
+        // TCP VERSION (WORKING)
+//        while (true) {
+//            Socket socket = serverSocket.accept();
+//            System.out.println("Accepted connection from peer\n");
+//
+//            ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+//            ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+//
+//            Object obj = ois.readObject();
+//            RequestPacket<ArrayList<String>> request = (RequestPacket<ArrayList<String>>) obj;
+//            ArrayList<String> params = request.getPayload();
+//            String filename = params.get(0);
+//            int chunkID = Integer.parseInt(params.get(1));
+//            File f = new File(INPUT_DIRECTORY + "c" + filename + "/" + filename + chunkID);
+//            FileInputStream fis = new FileInputStream(f);
+//            byte[] data = fis.readAllBytes();
+//            fis.close();
+//            RequestPacket<byte[]> response = new RequestPacket<>(1, data);
+//            oos.writeObject(response);
+//            socket.close();
+//        }
     }
 
     // Downloading
@@ -153,13 +196,13 @@ public class Peer {
             System.out.println("Request file from server first!");
             return;
         }
-
         String filename = FileInfo.getFilename();
         Path directory = Files.createDirectories(Paths.get(CHUNK_DIRECTORY, filename));
 
         // download chunks from peers
 
         numChunks = FileInfo.getNumOfChunks();
+        System.out.println(String.format("Total Number of chunks to download. %d", numChunks));
         // Single Thread for now...
         for (int i = 0; i < numChunks; i++) {
             ChunkInfo chunk = FileInfo.getChunk(i);
@@ -168,6 +211,7 @@ public class Peer {
             InetAddress peerAddress = peerSocket.getAddress();
             int peerPort = peerSocket.getPort();
             downloadFromPeer(directory, peerAddress, peerPort, filename, chunkID);
+            System.out.println(String.format("%d/%d", i,numChunks));
         }
 
         System.out.println(String.format("Finish downloading all the chunks of %s", filename));
@@ -201,33 +245,87 @@ public class Peer {
     }
 
     public void downloadFromPeer(Path directory, InetAddress peerAddress, int port, String fileName, int i) throws IOException, ClassNotFoundException {
-        // connect to peer
-        Socket socket = new Socket(peerAddress, port);
+        DatagramSocket dSock = new DatagramSocket();
+        dSock.connect(peerAddress,port);
+        dSock.setSoTimeout(10000);
 
-        // send chunk request
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ArrayList<String> params = new ArrayList<>();
         params.add(fileName);
         params.add(String.valueOf(i));
         RequestPacket<ArrayList<String>> requestPacket = new RequestPacket<>(0, params);
-        ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+        ObjectOutputStream oos = new ObjectOutputStream(baos);
         oos.writeObject(requestPacket);
         oos.flush();
+        byte[] data = baos.toByteArray();
+        dSock.send(new DatagramPacket(data, data.length));
 
-        ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-        RequestPacket<byte[]> response = (RequestPacket<byte[]>) ois.readObject();
-        byte[] data = response.getPayload();
+        byte[] buffer = new byte[BUFFER_SIZE];
+        while(true) {
+            DatagramPacket dataPkt = new DatagramPacket(buffer, BUFFER_SIZE, peerAddress, port);
+            try {
+                System.out.println(String.format("Waiting at %s:%s", dSock.getLocalAddress(), dSock.getLocalPort()));
+                dSock.receive(dataPkt);
+                break;
+            } catch (SocketTimeoutException ste) {
+                System.out.println(String.format("Timeout... resend request to %s:%d",dSock.getInetAddress(), dSock.getPort()));
+                buffer = new byte[BUFFER_SIZE];
+                dSock.send(new DatagramPacket(data, data.length));
+                continue;
+            }
+        }
+            System.out.println(buffer.length);
+            ByteArrayInputStream bais = new ByteArrayInputStream(buffer);
+            ObjectInputStream ois = new ObjectInputStream(bais);
+//        try {
+            Object readObject = ois.readObject();
+            if (readObject instanceof RequestPacket) {
+                RequestPacket<byte[]> response = (RequestPacket<byte[]>) readObject;
+                byte[] payload = response.getPayload();
 
-        File f = new File(directory.toString(), String.valueOf(i));
-        DataOutputStream dosFile = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)));
-        dosFile.write(data);
-        dosFile.flush();
-        dosFile.close();
-        System.out.println(String.format("Downloaded Chunk %d of %s", i, fileName));
-        ois.close();
-        oos.close();
-        socket.close();
+                File f = new File(directory.toString(), String.valueOf(i));
+                DataOutputStream dosFile = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)));
+                dosFile.write(payload);
+                dosFile.flush();
+                dosFile.close();
+                System.out.println(String.format("Downloaded Chunk %d of %s", i, fileName));
+            } else {
+                System.out.println("The received object is not of type RequestPacket!");
+            }
+            dSock.close();
+//        } catch (Exception e) {
+//            System.out.println(e);
+//            System.out.println("No object could be read from the received UDP datagram.");
+//        }
 
-        // TODO: inform tracker of completed chunk
+// TCP VERSION (WORKING)
+//        // connect to peer
+//        Socket socket = new Socket(peerAddress, port);
+//
+//        // send chunk request
+//        ArrayList<String> params = new ArrayList<>();
+//        params.add(fileName);
+//        params.add(String.valueOf(i));
+//        RequestPacket<ArrayList<String>> requestPacket = new RequestPacket<>(0, params);
+//        ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+//        oos.writeObject(requestPacket);
+//        oos.flush();
+//
+//        ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+//        RequestPacket<byte[]> response = (RequestPacket<byte[]>) ois.readObject();
+//        byte[] data = response.getPayload();
+//
+//        File f = new File(directory.toString(), String.valueOf(i));
+//        DataOutputStream dosFile = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)));
+//        dosFile.write(data);
+//        dosFile.flush();
+//        dosFile.close();
+//        System.out.println(String.format("Downloaded Chunk %d of %s", i, fileName));
+//        ois.close();
+//        oos.close();
+//        socket.close();
+
+
     }
 
     public void getDir(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
