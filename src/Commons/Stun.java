@@ -62,9 +62,21 @@ public class Stun {
 //                    System.out.println(ip1^0xffffff21);
 
                     int octlet1 = ip1^0xffffff21;
+                    if (!isValidOctlet(octlet1)) {
+                        octlet1 = ip1^0x21;
+                    }
                     int octlet2 = ip2^0xffffff12;
+                    if (!isValidOctlet(octlet2)) {
+                        octlet2 = ip1^0x12;
+                    }
                     int octlet3 = ip3^0xffffffA4;
+                    if (!isValidOctlet(octlet3)) {
+                        octlet3 = ip1^0xA4;
+                    }
                     int octlet4 = ip4^0xffffff42;
+                    if (!isValidOctlet(octlet4)) {
+                        octlet4 = ip1^0x42;
+                    }
 
 
 //                    System.out.println("position: "+ bb1.position());
@@ -73,6 +85,10 @@ public class Stun {
                             String.format("%d.%d.%d.%d", octlet1,octlet2,octlet3,octlet4), port);
 //                    dsock.close();
                     dsock.disconnect();
+                    System.out.println(dsock.isConnected());
+                    dsock.connect(InetAddress.getByName("74.125.200.127"), 19305);
+
+//                    dsock.bind(inetSocketAddress);
                     return inetSocketAddress;
                 }
                 i += (4  + attrLen);
@@ -81,6 +97,10 @@ public class Stun {
 
         }
         return null;
+    }
+
+    public static boolean isValidOctlet(int x) {
+        return x>=0 && x<=255;
     }
 
 }

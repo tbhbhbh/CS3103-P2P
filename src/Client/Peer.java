@@ -123,6 +123,20 @@ public class Peer {
         try {
             serverSocket = new ServerSocket(port);
             dataSocket = new DatagramSocket(port);
+            new Thread(){
+                public void run(){
+                    try {
+                        while(true) {
+                            Thread.sleep(1000);
+                            dataSocket.send(new DatagramPacket(new byte[100], 100));
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }.start();
+//            t.setDaemon(true);
+
             holePunchedIP = Stun.holePunch(dataSocket);
             System.out.println(String.format("Peer serving %d", port));
         } catch (Exception e) {
@@ -130,6 +144,7 @@ public class Peer {
             return;
         }
         while (true) {
+            System.out.println(dataSocket.isConnected());
             DatagramPacket dataPkt = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE);
             dataSocket.receive(dataPkt);
             byte[] buffer = dataPkt.getData();
@@ -248,7 +263,7 @@ public class Peer {
     public void downloadFromPeer(Path directory, InetAddress peerAddress, int port, String fileName, int i) throws IOException, ClassNotFoundException {
         DatagramSocket dSock = new DatagramSocket();
         dSock.connect(peerAddress,port);
-        dSock.setSoTimeout(10000);
+        dSock.setSoTimeout(3000);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ArrayList<String> params = new ArrayList<>();
@@ -259,6 +274,7 @@ public class Peer {
         oos.writeObject(requestPacket);
         oos.flush();
         byte[] data = baos.toByteArray();
+        System.out.println(peerAddress);
         dSock.send(new DatagramPacket(data, data.length));
 
         byte[] buffer = new byte[BUFFER_SIZE];
