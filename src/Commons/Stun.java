@@ -8,10 +8,10 @@ import java.nio.ByteBuffer;
 
 public class Stun {
     public static void main(String[] args) throws Exception{
-        holePunch(5000);
+        holePunch(new DatagramSocket(5000));
     }
-    public static InetSocketAddress holePunch(int peerPort) throws Exception{
-        DatagramSocket dsock = new DatagramSocket(peerPort);
+    public static InetSocketAddress holePunch(DatagramSocket dsock) throws Exception{
+//        dsock = new DatagramSocket(peerPort);
         dsock.connect(InetAddress.getByName("74.125.200.127"), 19305);
         byte[] bindingReq = new byte[20];
         short stunMethod = 0x0001;
@@ -71,7 +71,8 @@ public class Stun {
                     System.out.println(String.format("%d.%d.%d.%d:%d", octlet1, octlet2, octlet3, octlet4, port));
                     InetSocketAddress inetSocketAddress = new InetSocketAddress(
                             String.format("%d.%d.%d.%d", octlet1,octlet2,octlet3,octlet4), port);
-                    dsock.close();
+//                    dsock.close();
+                    dsock.disconnect();
                     return inetSocketAddress;
                 }
                 i += (4  + attrLen);

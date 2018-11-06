@@ -122,8 +122,8 @@ public class Peer {
     public void server() throws Exception {
         try {
             serverSocket = new ServerSocket(port);
-            holePunchedIP = Stun.holePunch(port);
             dataSocket = new DatagramSocket(port);
+            holePunchedIP = Stun.holePunch(dataSocket);
             System.out.println(String.format("Peer serving %d", port));
         } catch (Exception e) {
             System.out.println(e);
@@ -138,6 +138,7 @@ public class Peer {
             ObjectInputStream ois = new ObjectInputStream(bais);
 //            try {
                 Object readObject = ois.readObject();
+            System.out.println("Received Object!");
                 if (readObject instanceof RequestPacket) {
                     RequestPacket<ArrayList<String>> request = (RequestPacket) readObject;
                     ArrayList<String> params = request.getPayload();
