@@ -81,7 +81,9 @@ public class Peer {
                             String[] hosts = message.split(";");
                             for (String host : hosts) {
                                 System.out.println("HolePunching for THIS DUDE. "+host);
-                                DatagramPacket dp = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE, InetAddress.getByName(host), holePunchedIP.getPort());
+                                String ip = host.split(":")[0];
+                                int port = Integer.parseInt(host.split(":")[1]);
+                                DatagramPacket dp = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE, InetAddress.getByName(ip), port);
                                 for (int i=0;i>10;i++){
                                     dataSocket.send(dp);
                                 }
@@ -281,13 +283,14 @@ public class Peer {
             int chunkID = chunk.getChunkID();
             InetSocketAddress peerSocket = chunk.getRdmPeer();
 
-            Packet downloadRequestPacket = new Packet(6,0,peerSocket.getAddress().getHostAddress() );
+            int ownPort = generatePort();
+            Packet downloadRequestPacket = new Packet(6,0,peerSocket.getAddress().getHostAddress()+":"+ownPort );
             oos.writeObject(downloadRequestPacket);
             oos.flush();
 
             InetAddress peerAddress = peerSocket.getAddress();
             int peerPort = peerSocket.getPort();
-            downloadFromPeer(directory, peerAddress, peerPort, filename, chunkID, chunk.getChecksum());
+            downloadFromPeer(directory, peerAddress, ownPort, peerPort, filename, chunkID, chunk.getChecksum());
             System.out.println(String.format("%d/%d", i+1,numChunks));
         }
 
@@ -323,8 +326,8 @@ public class Peer {
 
     }
 
-    public void downloadFromPeer(Path directory, InetAddress peerAddress, int port, String fileName, int i, String checksum) throws Exception {
-        DatagramSocket dSock = new DatagramSocket();
+    public void downloadFromPeer(Path directory, InetAddress peerAddress, int ownPort, int port, String fileName, int i, String checksum) throws Exception {
+        DatagramSocket dSock = new DatagramSocket(ownPort);
         dSock.connect(peerAddress,port);
         dSock.setSoTimeout(3000);
 
@@ -348,11 +351,10 @@ public class Peer {
                 dSock.receive(dataPkt);
                 break;
             } catch (SocketTimeoutException ste) {
-                dSock = new DatagramSocket();
-                dSock.connect(peerAddress,port);
-                dSock.setSoTimeout(10000);
-                buffer = new byte[BUFFER_SIZE];
-                System.out.println(String.format("Timeout... resend request using new port to %s:%d",dSock.getInetAddress(), dSock.getPort()));
+//                dSock.connect(peerAddress,port);
+//                dSock.setSoTimeout(10000);
+//                buffer = new byte[BUFFER_SIZE];
+//                System.out.println(String.format("Timeout... resend request using new port to %s:%d",dSock.getInetAddress(), dSock.getPort()));
                 dSock.send(new DatagramPacket(data, data.length));
                 continue;
             }

@@ -157,13 +157,15 @@ public class Server {
             if (pkt.getType() == 6) { // DownloadRequest
                 LOGGER.info("DOWNLOAD REQ");
                 String x = (String) pkt.getPayload();
+                String ip = x.split(":")[0];
+                String port = x.split(":")[1];
                 String y = "";
-                if (messages.containsKey(x)) {
-                    y = ";" + messages.get(x);
+                if (messages.containsKey(ip)) {
+                    y = ";" + messages.get(ip);
                 }
-                y += clientAddress.getAddress().getHostAddress();
-                LOGGER.info(String.format("Put Req of %s for %s", clientAddress.getAddress().getHostAddress(), x));
-                messages.put(x,y);
+                y += clientAddress.getAddress().getHostAddress()+":"+port;
+                LOGGER.info(String.format("Put Req of %s for %s@%s", clientAddress.getAddress().getHostAddress(), ip, port));
+                messages.put(ip,y);
             }
 
             if (pkt.getType() == 7) { // Heartbeat
@@ -177,6 +179,7 @@ public class Server {
                     packet = new Packet(7,1);
                 } else {
                     packet= new Packet(7,2, messages.get(clientAddress.getAddress().getHostAddress()));
+                    messages.remove(clientAddress.getAddress().getHostAddress());
                     LOGGER.info("REQ SENT");
                 }
                 oos.writeObject(packet);
