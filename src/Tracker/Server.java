@@ -162,17 +162,19 @@ public class Server {
                     y = ";" + messages.get(x);
                 }
                 y += socket.getInetAddress().getHostAddress();
+                LOGGER.info(String.format("Put Req of %s for %s", socket.getInetAddress().getHostAddress(),x));
                 messages.put(x,y);
             }
 
             if (pkt.getType() == 7) { // Heartbeat
-                LOGGER.info("HeartBeat");
+//                LOGGER.info("HeartBeat");
                 // check if have message
                 Packet packet ;
                 if (!messages.containsKey(socket.getInetAddress().getHostAddress())) {
                     packet = new Packet(7,1);
                 } else {
                     packet= new Packet(7,2, messages.get(socket.getInetAddress().getHostAddress()));
+                    LOGGER.info("REQ SENT");
                 }
                 oos.writeObject(packet);
                 oos.flush();
