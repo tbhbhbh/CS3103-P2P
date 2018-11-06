@@ -30,9 +30,12 @@ public class Client {
         Peer peer = new Peer();
 
         try {
-            clientSocket = new Socket("0.0.0.0", SERVER_PORT);
+            clientSocket = new Socket("3.16.37.66", SERVER_PORT);
             oos = new ObjectOutputStream(clientSocket.getOutputStream());
+            oos.flush();
             ois = new ObjectInputStream(clientSocket.getInputStream());
+            System.out.println(String.format("Connected! %s:%d", clientSocket.getInetAddress(), clientSocket.getPort()));
+
 
         } catch (IOException e) {
             System.out.println(e);

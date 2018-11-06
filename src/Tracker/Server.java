@@ -45,11 +45,13 @@ public class Server {
             while (true) {
                 LOGGER.info("Waiting for peer");
                 Socket clientSocket = serverSocket.accept();
+                LOGGER.info(String.format("Client received %s:%d", clientSocket.getInetAddress(), clientSocket.getPort()));
                 Thread t = new Thread() {
                     public void run() {
                         try {
                             handleClientSocket(clientSocket);
                         } catch (Exception e) {
+                            LOGGER.warning(e.getMessage());
                             e.printStackTrace();
                         }
 
@@ -104,7 +106,7 @@ public class Server {
                     fileInfo.addPeer(clientAddress);
                 }
                 fileList.put(filename, fileInfo);
-                LOGGER.info(String.format("%:%d :Add to FileList", clientAddress.getAddress(), clientAddress.getPort()));
+                LOGGER.info(String.format("%s:%d :Add to FileList", clientAddress.getAddress(), clientAddress.getPort()));
             }
             if (pkt.getType() == 1) { // Query Packet (Directory)
                 LOGGER.info("List Directory");
