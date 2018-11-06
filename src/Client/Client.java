@@ -2,20 +2,21 @@ package Client;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.util.ArrayList;
 import java.util.Scanner;
 
 public class Client {
 
-    /*
-    *
-    *
-     */
+    public static final String DIRECTORY = "./files/";
+    public static final String INPUT_DIRECTORY = DIRECTORY + "input/";
+    public static final String OUTPUT_DIRECTORY = DIRECTORY + "output/";
     private final int SERVER_PORT = 8080;
     private Socket clientSocket;
+    private ObjectOutputStream oos;
+    private ObjectInputStream ois;
     private int option;
-    final String DIRECTORY = "./src/files/";
 
     public static void main(String[] args) throws Exception {
         Client c = new Client();
@@ -29,12 +30,18 @@ public class Client {
         Peer peer = new Peer();
 
         try {
-            clientSocket = new Socket("localhost", SERVER_PORT);
+            clientSocket = new Socket("3.16.37.66", SERVER_PORT);
+            oos = new ObjectOutputStream(clientSocket.getOutputStream());
+            oos.flush();
+            ois = new ObjectInputStream(clientSocket.getInputStream());
+            System.out.println(String.format("Connected! %s:%d", clientSocket.getInetAddress(), clientSocket.getPort()));
+
+
         } catch (IOException e) {
             System.out.println(e);
         }
 
-        File folder = new File(DIRECTORY);
+        File folder = new File(INPUT_DIRECTORY);
         File[] listOfFiles = folder.listFiles();
 
         for (int i = 0; i < listOfFiles.length; i++) {
@@ -49,7 +56,7 @@ public class Client {
             public void run(){
                 try {
                     peer.server();
-                } catch (IOException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -70,16 +77,20 @@ public class Client {
             scanner.nextLine();
             if (option == 1) {
                 System.out.println("listing files from server...");
-                peer.requestListOfFiles(clientSocket);
+                peer.getDir(ois, oos);
             }
 
             if (option == 2) {
+                System.out.println("Enter filename: ");
+                String filename;
+                filename = scanner.nextLine();
                 System.out.println("Requesting file from server on how many chunks and peer info");
+                peer.getFile(ois, oos,filename);
             }
 
             if (option == 3) {
                 System.out.println("Downloading a file");
-                peer.download();
+                peer.download(ois, oos);
             }
 
             if (option == 4) {
@@ -87,12 +98,13 @@ public class Client {
                 String filename;
                 filename = scanner.nextLine();
                 System.out.println("Initial announcement of a file");
-                peer.updateServer(clientSocket, filename);
+                peer.updateServer(ois, oos, filename);
 
             }
 
             else if (option == 5) {
                 System.out.println("Deregistering and disconnecting. Goodbye");
+                peer.shutdown(ois, oos);
                 disconnect(clientSocket);
                 break;
             }
@@ -105,6 +117,8 @@ public class Client {
 
     public void disconnect(Socket clientSocket){
         try {
+            oos.close();
+            ois.close();
             clientSocket.close();
         } catch (IOException e) {
             System.out.println(e);
