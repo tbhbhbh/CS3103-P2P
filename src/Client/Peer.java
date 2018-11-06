@@ -9,7 +9,6 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
-import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -268,8 +267,11 @@ public class Peer {
                 dSock.receive(dataPkt);
                 break;
             } catch (SocketTimeoutException ste) {
-                System.out.println(String.format("Timeout... resend request to %s:%d",dSock.getInetAddress(), dSock.getPort()));
+                dSock = new DatagramSocket();
+                dSock.connect(peerAddress,port);
+                dSock.setSoTimeout(10000);
                 buffer = new byte[BUFFER_SIZE];
+                System.out.println(String.format("Timeout... resend request using new port to %s:%d",dSock.getInetAddress(), dSock.getPort()));
                 dSock.send(new DatagramPacket(data, data.length));
                 continue;
             }
