@@ -35,4 +35,7 @@ public class Packet implements Serializable {
         this.code = code;
     }
 
+    public Object getPayload() {
+        return payload;
+    }
 }

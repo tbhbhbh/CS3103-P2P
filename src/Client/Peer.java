@@ -65,6 +65,35 @@ public class Peer {
         return r.nextInt(9000 - 8100) + 8100;
     }
 
+    public void heartbeat(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
+        new Thread() {
+            public void run(){
+                while (true) {
+                    try {
+                        Thread.sleep(1000);
+                        Packet heartbeatPacket = new Packet(7,0);
+                        oos.writeObject(heartbeatPacket);
+                        oos.flush();
+                        Object obj = ois.readObject();
+                        Packet replyPkt = (Packet)obj;
+                        if (replyPkt.getCode() == 2) {
+                            String message = (String) replyPkt.getPayload();
+                            String[] hosts = message.split(";");
+                            for (String host : hosts) {
+                                System.out.println("HolePunching for THIS DUDE.");
+                                DatagramPacket dp = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE, InetAddress.getByName(host), holePunchedIP.getPort());
+                                for (int i=0;i>10;i++){
+                                    dataSocket.send(dp);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }.start();
+    }
 
     /*
      * Peer updates server of a file
@@ -166,8 +195,24 @@ public class Peer {
         try {
             serverSocket = new ServerSocket(port);
             dataSocket = new DatagramSocket(port);
-            holePunchedIP = new InetSocketAddress(dataSocket.getLocalAddress(), port);
-//            holePunchedIP = Stun.holePunch(dataSocket);
+//            holePunchedIP = new InetSocketAddress(dataSocket.getLocalAddress(), port);
+            holePunchedIP = Stun.holePunch(dataSocket, "108.177.98.127");
+            // check if under Symmetric NAT
+            InetSocketAddress secPunchedIP = Stun.holePunch(dataSocket,"74.125.200.127");
+            if (holePunchedIP.getPort() != secPunchedIP.getPort()) {
+                System.out.println("Symmetric NAT concluded based on PORT");
+                // handle symmetric nat
+            }
+            if (!holePunchedIP.getHostString().equals(secPunchedIP.getHostString())) {
+                System.out.println("Symmetric NAT concluded based on IP");
+                // handle symmetric nat
+            }
+//            new Thread(){
+//                @Override
+//                public void run() {
+//                    dataSocket.send();
+//                }
+//            }.start();
             System.out.println(String.format("Peer serving %d", port));
         } catch (Exception e) {
             System.out.println(e);
@@ -216,6 +261,10 @@ public class Peer {
 
     // Downloading
     public void download(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
+
+        Packet downloadRequestPacket = new Packet(6,0, holePunchedIP.getAddress().getHostAddress());
+        oos.writeObject(downloadRequestPacket);
+        oos.flush();
 
         if (FileInfo == null) {
             System.out.println("Request file from server first!");

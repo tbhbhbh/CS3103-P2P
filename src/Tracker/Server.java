@@ -9,9 +9,9 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -29,7 +29,8 @@ public class Server {
     private final int LISTENING_PORT = 8080;
     private ServerSocket serverSocket;
 
-    private HashMap<String, FileInfo> fileList;
+    private ConcurrentHashMap<String, FileInfo> fileList;
+    private ConcurrentHashMap<String, String> messages;
 
     public static void main(String[] args) throws Exception {
         LOGGER.info("Starting P2P server");
@@ -38,7 +39,8 @@ public class Server {
 
 
     public Server() throws Exception {
-        fileList = new HashMap<>();
+        fileList = new ConcurrentHashMap<>();
+        messages = new ConcurrentHashMap<>();
         LOGGER.info("Init server on port " + LISTENING_PORT + "");
 
         //try to obtain server socket
@@ -150,6 +152,30 @@ public class Server {
                     fileInfo.removePeer(clientAddress);
                 }
                 break;
+            }
+
+            if (pkt.getType() == 6) { // DownloadRequest
+                LOGGER.info("DOWNLOAD REQ");
+                String x = (String) pkt.getPayload();
+                String y = "";
+                if (messages.containsKey(x)) {
+                    y = ";" + messages.get(x);
+                }
+                y += socket.getInetAddress().getHostAddress();
+                messages.put(x,y);
+            }
+
+            if (pkt.getType() == 7) { // Heartbeat
+                LOGGER.info("HeartBeat");
+                // check if have message
+                Packet packet ;
+                if (!messages.containsKey(socket.getInetAddress().getHostAddress())) {
+                    packet = new Packet(7,1);
+                } else {
+                    packet= new Packet(7,2, messages.get(socket.getInetAddress().getHostAddress()));
+                }
+                oos.writeObject(packet);
+                oos.flush();
             }
         }
         ois.close();
