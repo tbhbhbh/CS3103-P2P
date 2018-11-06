@@ -3,6 +3,7 @@ package Tracker;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -75,9 +76,11 @@ public class Server {
             if (pkt.getType() == 0) { // Register packet
                 LOGGER.info("Register to Tracker");
                 RegisterPacket regPkt = (RegisterPacket) pkt;
-                String clientIP = socket.getInetAddress().getHostAddress();
+//                String clientIP = socket.getInetAddress().getHostAddress();
                 int clientPort = regPkt.getPort();
+                InetAddress clientIP = regPkt.getPublicIP();
                 clientAddress = new InetSocketAddress(clientIP, clientPort);
+                LOGGER.info(String.format("Client Address: %s :%d", clientIP, clientPort));
             }
             if (pkt.getType() == 4) {// Update Packet
                 LOGGER.info("Update Availability");
@@ -89,6 +92,7 @@ public class Server {
                 int numChunks = upPkt.getChunks();
                 FileInfo fileInfo;
                 if (!fileList.containsKey(filename)) {
+                    LOGGER.info("creating new file entry: %s".format(filename));
                     fileInfo = new FileInfo(filename);
                     for (int i = 0; i < numChunks; i++) {
                         ChunkInfo chunk = new ChunkInfo(i);
@@ -100,7 +104,7 @@ public class Server {
                     fileInfo.addPeer(clientAddress);
                 }
                 fileList.put(filename, fileInfo);
-                LOGGER.info("Add to FileList");
+                LOGGER.info(String.format("%:%d :Add to FileList", clientAddress.getAddress(), clientAddress.getPort()));
             }
             if (pkt.getType() == 1) { // Query Packet (Directory)
                 LOGGER.info("List Directory");

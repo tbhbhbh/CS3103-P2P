@@ -41,6 +41,7 @@ public class Peer {
 
     public ServerSocket serverSocket;
     public DatagramSocket dataSocket;
+    InetSocketAddress holePunchedIP;
 
     public Peer() {
         this.port = generatePort();
@@ -107,8 +108,8 @@ public class Peer {
         }
 
 
-        System.out.println("Registering peer");
-        RegisterPacket regPacket = new RegisterPacket(port);
+        System.out.println(String.format("Registering peer @ %s:%d", holePunchedIP.getAddress(), holePunchedIP.getPort()));
+        RegisterPacket regPacket = new RegisterPacket(holePunchedIP);
         oos.writeObject(regPacket);
         oos.flush();
 
@@ -121,7 +122,7 @@ public class Peer {
     public void server() throws Exception {
         try {
             serverSocket = new ServerSocket(port);
-            Stun.holePunch(port);
+            holePunchedIP = Stun.holePunch(port);
             dataSocket = new DatagramSocket(port);
             System.out.println(String.format("Peer serving %d", port));
         } catch (Exception e) {
