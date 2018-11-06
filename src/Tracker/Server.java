@@ -3,6 +3,8 @@ package Tracker;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -67,6 +69,17 @@ public class Server {
 
     }
 
+    public void udpHeartBeatServer() throws Exception {
+        DatagramSocket dSock = new DatagramSocket(LISTENING_PORT);
+        while (true) {
+            LOGGER.info("Echo UDP..");
+            DatagramPacket dPkt = new DatagramPacket(new byte[1500], 1500);
+            dSock.receive(dPkt);
+            DatagramPacket echoPkt = new DatagramPacket(dPkt.getData(), dPkt.getData().length, dPkt.getSocketAddress());
+            dSock.send(echoPkt);
+        }
+    }
+
     private void handleClientSocket(Socket socket) throws Exception {
         LOGGER.info("Client connected\n");
         ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
@@ -80,7 +93,7 @@ public class Server {
                 RegisterPacket regPkt = (RegisterPacket) pkt;
 //                String clientIP = socket.getInetAddress().getHostAddress();
                 int clientPort = regPkt.getPort();
-                InetAddress clientIP = regPkt.getPublicIP();
+                InetAddress clientIP = socket.getInetAddress();
                 clientAddress = new InetSocketAddress(clientIP, clientPort);
                 LOGGER.info(String.format("Client Address: %s :%d", clientIP, clientPort));
             }
