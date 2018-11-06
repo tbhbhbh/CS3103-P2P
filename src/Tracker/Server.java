@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -105,15 +106,18 @@ public class Server {
                 UpdatePacket upPkt = (UpdatePacket) pkt;
                 String filename = upPkt.getFilename();
                 int numChunks = upPkt.getChunks();
+                LinkedList<String> checksums = upPkt.getChecksums();
                 FileInfo fileInfo;
                 if (!fileList.containsKey(filename)) {
                     LOGGER.info("creating new file entry: %s".format(filename));
                     fileInfo = new FileInfo(filename);
                     for (int i = 0; i < numChunks; i++) {
                         ChunkInfo chunk = new ChunkInfo(i);
+                        chunk.setChecksum(checksums.removeFirst());
                         chunk.addPeer(clientAddress);
                         fileInfo.addChunk(chunk);
                     }
+                    fileInfo.setChecksum(checksums.getLast());
                 } else {
                     fileInfo = fileList.get(filename);
                     fileInfo.addPeer(clientAddress);

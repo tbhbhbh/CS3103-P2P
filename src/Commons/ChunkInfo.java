@@ -8,7 +8,7 @@ import java.util.Random;
 public class ChunkInfo implements Serializable {
 
     private int chunkID;
-//    private String checksum;
+    private String checksum;
     private ArrayList<InetSocketAddress> peers = new ArrayList<>();
 
     public ChunkInfo(int chunkID) {
@@ -21,6 +21,14 @@ public class ChunkInfo implements Serializable {
 
     public void addPeer(InetSocketAddress inet){
         peers.add(inet);
+    }
+
+    public void setChecksum(String checksum) {
+        this.checksum = checksum;
+    }
+
+    public String getChecksum() {
+        return checksum;
     }
 
     public void addPeer(String ipAddress, int port) {

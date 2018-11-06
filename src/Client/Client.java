@@ -30,7 +30,7 @@ public class Client {
         Peer peer = new Peer();
 
         try {
-            clientSocket = new Socket("3.16.37.66", SERVER_PORT);
+            clientSocket = new Socket("localhost", SERVER_PORT);
             oos = new ObjectOutputStream(clientSocket.getOutputStream());
             oos.flush();
             ois = new ObjectInputStream(clientSocket.getInputStream());
