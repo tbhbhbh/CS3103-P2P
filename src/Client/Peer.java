@@ -80,7 +80,7 @@ public class Peer {
                             String message = (String) replyPkt.getPayload();
                             String[] hosts = message.split(";");
                             for (String host : hosts) {
-                                System.out.println("HolePunching for THIS DUDE.");
+                                System.out.println("HolePunching for THIS DUDE. "+host);
                                 DatagramPacket dp = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE, InetAddress.getByName(host), holePunchedIP.getPort());
                                 for (int i=0;i>10;i++){
                                     dataSocket.send(dp);
@@ -262,10 +262,6 @@ public class Peer {
     // Downloading
     public void download(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
 
-        Packet downloadRequestPacket = new Packet(6,0, holePunchedIP.getAddress().getHostAddress());
-        oos.writeObject(downloadRequestPacket);
-        oos.flush();
-
         if (FileInfo == null) {
             System.out.println("Request file from server first!");
             return;
@@ -284,6 +280,11 @@ public class Peer {
             hashes.add(chunk.getChecksum());
             int chunkID = chunk.getChunkID();
             InetSocketAddress peerSocket = chunk.getRdmPeer();
+
+            Packet downloadRequestPacket = new Packet(6,0,peerSocket.getAddress().getHostAddress() );
+            oos.writeObject(downloadRequestPacket);
+            oos.flush();
+
             InetAddress peerAddress = peerSocket.getAddress();
             int peerPort = peerSocket.getPort();
             downloadFromPeer(directory, peerAddress, peerPort, filename, chunkID, chunk.getChecksum());
