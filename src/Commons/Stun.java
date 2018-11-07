@@ -58,24 +58,23 @@ public class Stun {
                     byte ip3 = bb1.get();
                     byte ip4 = bb1.get();
 
-                    int octlet1 = ip1^0xffffff21;
-                    if (!isValidOctlet(octlet1)) {
-                        octlet1 = ip1^0x21;
-                    }
-                    int octlet2 = ip2^0xffffff12;
-                    if (!isValidOctlet(octlet2)) {
-                        octlet2 = ip1^0x12;
-                    }
-                    int octlet3 = ip3^0xffffffA4;
-                    if (!isValidOctlet(octlet3)) {
-                        octlet3 = ip1^0xA4;
-                    }
-                    int octlet4 = ip4^0xffffff42;
-                    if (!isValidOctlet(octlet4)) {
-                        octlet4 = ip1^0x42;
-                    }
+                    String hex1 = Integer.toHexString(ip1^21);
+                    String hex1Trim = hex1.substring(Math.max(hex1.length() - 2, 0));
+                    int octlet1 = Integer.parseInt(hex1Trim,16);
 
+                    String hex2 = Integer.toHexString(ip2^0x12);
+                    String hex2Trim = hex2.substring(Math.max(hex2.length() - 2, 0));
+                    int octlet2 = Integer.parseInt(hex2Trim,16);
 
+                    String hex3 = Integer.toHexString(ip3^0xA4);
+                    String hex3Trim = hex3.substring(Math.max(hex3.length() - 2, 0));
+                    int octlet3 = Integer.parseInt(hex3Trim,16);
+
+                    String hex4 = Integer.toHexString(ip4^0x42);
+                    String hex4Trim = hex4.substring(Math.max(hex4.length() - 2, 0));
+                    int octlet4 = Integer.parseInt(hex4Trim,16);
+
+                    System.out.println(String.format("%s.%s.%s.%s:%s", hex1Trim, hex2Trim, hex3Trim, hex4Trim, numPort));
                     System.out.println(String.format("%d.%d.%d.%d:%d", octlet1, octlet2, octlet3, octlet4, numPort));
                     InetSocketAddress inetSocketAddress = new InetSocketAddress(
                             String.format("%d.%d.%d.%d", octlet1,octlet2,octlet3,octlet4), numPort);
