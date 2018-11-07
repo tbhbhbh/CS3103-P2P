@@ -172,7 +172,7 @@ public class Peer {
         byte[] buffer = new byte[BUFFER_SIZE];
         int read = 0;
         while( ( read = fis.read( buffer ) ) > 0 ){
-           md.update(buffer,0,read);
+            md.update(buffer,0,read);
         }
         fis.close();
         byte[] digest = md.digest();
@@ -359,24 +359,23 @@ public class Peer {
                 continue;
             }
         }
-
-            ByteArrayInputStream bais = new ByteArrayInputStream(buffer);
-            ObjectInputStream ois = new ObjectInputStream(bais);
+        ByteArrayInputStream bais = new ByteArrayInputStream(buffer);
+        ObjectInputStream ois = new ObjectInputStream(bais);
 //        try {
-            Object readObject = ois.readObject();
-            if (readObject instanceof RequestPacket) {
-                RequestPacket<byte[]> response = (RequestPacket<byte[]>) readObject;
-                byte[] payload = response.getPayload();
+        Object readObject = ois.readObject();
+        if (readObject instanceof RequestPacket) {
+            RequestPacket<byte[]> response = (RequestPacket<byte[]>) readObject;
+            byte[] payload = response.getPayload();
 
-                File f = new File(directory.toString(), String.valueOf(i));
-                DataOutputStream dosFile = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)));
-                dosFile.write(payload);
-                dosFile.flush();
-                dosFile.close();
-                System.out.println(String.format("Downloaded Chunk %d of %s", i, fileName));
-            } else {
-                System.out.println("The received object is not of type RequestPacket!");
-            }
+            File f = new File(directory.toString(), String.valueOf(i));
+            DataOutputStream dosFile = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)));
+            dosFile.write(payload);
+            dosFile.flush();
+            dosFile.close();
+            System.out.println(String.format("Downloaded Chunk %d of %s", i, fileName));
+        } else {
+            System.out.println("The received object is not of type RequestPacket!");
+        }
         System.out.println(String.format("Chunk matches Hash - %s",
                 generateMD5(Paths.get(directory.toString(),String.valueOf(i))).equals(checksum)));
         dSock.close();
