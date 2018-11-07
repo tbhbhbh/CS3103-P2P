@@ -1,105 +1,70 @@
 package Tracker;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Array;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Hashtable;
-import java.util.Map;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+import Commons.Packet;
+import Commons.QueryDirPacket;
+import Commons.QueryFilePacket;
+import Commons.RegisterPacket;
+import Commons.UpdatePacket;
+import Commons.ChunkInfo;
+import Commons.FileInfo;
 
 public class Server {
 
-    /*
-    * 1) initial announcement
-    * peerIP
-    * peerPort
-    * fileName
-    * numChunks
-    *
-     */
-    private static Hashtable<String, ArrayList<String>> fileNameToChunksIndex;
-    private static Hashtable<String, ArrayList<InetSocketAddress>> chunksToPeerIndex;
-    private static ArrayList<Integer> peerIPList;
-    private static ArrayList<Integer> peerPort;
-
+    private static final Logger LOGGER = Logger.getLogger( Server.class.getName() );
     private final int LISTENING_PORT = 8080;
-    private static int CHUNK_ID = 0;
     private ServerSocket serverSocket;
-    private Socket clientSocket;
+
+    private ConcurrentHashMap<String, FileInfo> fileList;
+    private ConcurrentHashMap<String, String> messages;
 
     public static void main(String[] args) throws Exception {
-        System.out.println("Starting P2P server\n");
+        LOGGER.info("Starting P2P server");
         new Server();
     }
 
 
-    public Server() {
-        System.out.println("Init server on port " + LISTENING_PORT + "\n");
+    public Server() throws Exception {
+        fileList = new ConcurrentHashMap<>();
+        messages = new ConcurrentHashMap<>();
+        LOGGER.info("Init server on port " + LISTENING_PORT + "");
 
         //try to obtain server socket
         try {
             ServerSocket serverSocket = new ServerSocket(LISTENING_PORT);
+
             while (true) {
-                System.out.println("Waiting for peer\n");
-                clientSocket = serverSocket.accept();
+                LOGGER.info("Waiting for peer");
+                Socket clientSocket = serverSocket.accept();
+                LOGGER.info(String.format("Client received %s:%d", clientSocket.getInetAddress(), clientSocket.getPort()));
+                Thread t = new Thread() {
+                    public void run() {
+                        try {
+                            handleClientSocket(clientSocket);
+                        } catch (Exception e) {
+                            LOGGER.warning(e.getMessage());
+                            e.printStackTrace();
+                        }
 
-            }
-        } catch (IOException e) {
-            System.out.println(e);
-        }
-
-        try {
-            DataInputStream dIn = new DataInputStream(clientSocket.getInputStream());
-            DataOutputStream dOut = new DataOutputStream(clientSocket.getOutputStream());
-
-            byte option = dIn.readByte();
-            boolean isEndOfData = false;
-            System.out.println(option);
-
-            switch (option) {
-                //initial announcement - register a file
-                case 0:
-
-                    String fileName = null;
-                    String peerIP = null;
-                    int numChunks = 0, peerPort = 0;
-                    ArrayList<String> chunkList;
-
-                    while(!isEndOfData) {
-                       byte message = dIn.readByte();
-                       switch (message) {
-                           case 1: //file name
-                               fileName = dIn.readUTF();
-                           case 2: //num chunks
-                               numChunks = dIn.readInt();
-                           case 3: //peer ip
-                               peerIP = dIn.readUTF();
-                           case 4: //peer port
-                               peerPort = dIn.readInt();
-                           default:
-                               isEndOfData = true;
-                       }
                     }
-
-                    registerFile(fileName, numChunks, peerIP, peerPort);
-
-                // register a chunk
-                // TODO: registering chunk
-                case 1:
-                    listDirectory();
-
-                // TODO: peer/client requesting for file
-                case 2:
-
-
-
+                };
+                t.setDaemon(true);
+                t.start();
             }
-
         } catch (IOException e) {
             System.out.println(e);
         }
@@ -107,52 +72,122 @@ public class Server {
 
     }
 
-    /*
-        Handles initial announcement when a peer registers.
-     */
-    public static void registerFile(String fileName, int numChunks,
-                                    String peerIP, int peerPort) {
-
-        if (!fileNameToChunksIndex.containsKey(fileName)) {
-            ArrayList<String> chunkNameList = new ArrayList<>();
-
-            for (int i = 0; i < numChunks; i++) {
-                String chunkName = fileName + String.valueOf(i);
-                chunkNameList.add(chunkName);
-            }
-            fileNameToChunksIndex.put(fileName, chunkNameList);
+    public void udpHeartBeatServer() throws Exception {
+        DatagramSocket dSock = new DatagramSocket(LISTENING_PORT);
+        while (true) {
+            LOGGER.info("Echo UDP..");
+            DatagramPacket dPkt = new DatagramPacket(new byte[1500], 1500);
+            dSock.receive(dPkt);
+            DatagramPacket echoPkt = new DatagramPacket(dPkt.getData(), dPkt.getData().length, dPkt.getSocketAddress());
+            dSock.send(echoPkt);
         }
     }
 
-    public static void listDirectory() {
-        for (Map.Entry<String, ArrayList<String>> fileNameToChunksIndex:
-                fileNameToChunksIndex.entrySet()) {
-            System.out.println("File name: " + fileNameToChunksIndex.getKey());
-            System.out.println("Number of chunks: " + fileNameToChunksIndex.getValue().size());
-
-            ArrayList<String> chunkIDList = fileNameToChunksIndex.getValue();
-            for (int i = 0; i < chunkIDList.size(); i++) {
-                String chunkID = chunkIDList.get(i);
-                ArrayList<InetSocketAddress> peerList = chunksToPeerIndex.get(chunkID);
-                for (int j = 0; j < peerList.size(); j++) {
-                    if (j == 1) {
-                        char[] whiteSpaces = new char[chunkID.length()];
-                        Arrays.fill(whiteSpaces, ' ');
-                        chunkID = new String(whiteSpaces);
-                    }
-                    System.out.println(chunkID + " - " + peerList.get(j).getHostName());
+    private void handleClientSocket(Socket socket) throws Exception {
+        LOGGER.info("Client connected\n");
+        ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+        ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+        InetSocketAddress clientAddress = null;
+        while (true) {
+            Object obj = ois.readObject();
+            Packet pkt = (Packet) obj;
+            if (pkt.getType() == 0) { // Register packet
+                LOGGER.info("Register to Tracker");
+                RegisterPacket regPkt = (RegisterPacket) pkt;
+//                String clientIP = socket.getInetAddress().getHostAddress();
+                int clientPort = regPkt.getPort();
+                InetAddress clientIP = socket.getInetAddress();
+                clientAddress = new InetSocketAddress(clientIP, clientPort);
+                LOGGER.info(String.format("Client Address: %s :%d", clientIP, clientPort));
+            }
+            if (pkt.getType() == 4) {// Update Packet
+                LOGGER.info("Update Availability");
+                if (clientAddress == null) {
+                    continue;
                 }
+                UpdatePacket upPkt = (UpdatePacket) pkt;
+                String filename = upPkt.getFilename();
+                int numChunks = upPkt.getChunks();
+                LinkedList<String> checksums = upPkt.getChecksums();
+                FileInfo fileInfo;
+                if (!fileList.containsKey(filename)) {
+                    LOGGER.info("creating new file entry: %s".format(filename));
+                    fileInfo = new FileInfo(filename);
+                    for (int i = 0; i < numChunks; i++) {
+                        ChunkInfo chunk = new ChunkInfo(i);
+                        chunk.setChecksum(checksums.removeFirst());
+                        chunk.addPeer(clientAddress);
+                        fileInfo.addChunk(chunk);
+                    }
+                    fileInfo.setChecksum(checksums.getLast());
+                } else {
+                    fileInfo = fileList.get(filename);
+                    fileInfo.addPeer(clientAddress);
+                }
+                fileList.put(filename, fileInfo);
+                LOGGER.info(String.format("%s:%d :Add to FileList", clientAddress.getAddress(), clientAddress.getPort()));
+            }
+            if (pkt.getType() == 1) { // Query Packet (Directory)
+                LOGGER.info("List Directory");
+                List<String> filenames = fileList.keySet().stream().collect(Collectors.toList());
+                QueryDirPacket responsePkt = new QueryDirPacket(filenames);
+                oos.writeObject(responsePkt);
+                oos.flush();
             }
 
+            if (pkt.getType() == 2) { // Query Packet (File)
+                QueryFilePacket queryPkt = (QueryFilePacket) pkt;
+                String filename = queryPkt.getFilename();
+                LOGGER.info(String.format("Request for file: %s", filename));
+                FileInfo fileInfo = fileList.get(filename);
+                QueryFilePacket responsePkt = new QueryFilePacket(fileInfo);
+                oos.writeObject(responsePkt);
+                oos.flush();
+            }
+
+            if (pkt.getType() == 5) { // Shutdown
+                // Remove records...
+                LOGGER.info("shutdown peer");
+                for (FileInfo fileInfo : fileList.values()) {
+                    fileInfo.removePeer(clientAddress);
+                }
+                break;
+            }
+
+            if (pkt.getType() == 6) { // DownloadRequest
+                LOGGER.info("DOWNLOAD REQ");
+                String x = (String) pkt.getPayload();
+                String ip = x.split(":")[0];
+                String port = x.split(":")[1];
+                String y = "";
+                if (messages.containsKey(ip)) {
+                    y = ";" + messages.get(ip);
+                }
+                y += clientAddress.getAddress().getHostAddress()+":"+port;
+                LOGGER.info(String.format("Put Req of %s for %s@%s", clientAddress.getAddress().getHostAddress(), ip, port));
+                messages.put(ip,y);
+            }
+
+            if (pkt.getType() == 7) { // Heartbeat
+//                LOGGER.info("HeartBeat");
+                // check if have message
+                if (clientAddress == null){
+                    clientAddress = new InetSocketAddress(socket.getInetAddress(),socket.getPort());
+                }
+                Packet packet ;
+                if (!messages.containsKey(clientAddress.getAddress().getHostAddress())) {
+                    packet = new Packet(7,1);
+                } else {
+                    packet= new Packet(7,2, messages.get(clientAddress.getAddress().getHostAddress()));
+                    messages.remove(clientAddress.getAddress().getHostAddress());
+                    LOGGER.info("REQ SENT");
+                }
+                oos.writeObject(packet);
+                oos.flush();
+            }
         }
-    }
-
-    /*
-        Handles chunk announcement when an existing peer finishes downloading a chunk.
-     */
-    public static void registerChunk(String fileName, int numChunks,
-                                     String peerIP, int peerPort) {
-        //TODO: implement chunk registering
-
+        ois.close();
+        oos.close();
+        socket.close();
     }
 }
