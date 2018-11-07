@@ -18,6 +18,14 @@ public class FileInfo implements Serializable {
         this.filename = filename;
     }
 
+    public String getChecksum() {
+        return checksum;
+    }
+
+    public void setChecksum(String checksum) {
+        this.checksum = checksum;
+    }
+
     public void removePeer(InetSocketAddress inet) {
         for (ChunkInfo chunk: chunkList) {
             chunk.removePeer(inet);

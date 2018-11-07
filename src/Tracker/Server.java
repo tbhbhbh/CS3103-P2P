@@ -3,12 +3,15 @@ package Tracker;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -26,7 +29,8 @@ public class Server {
     private final int LISTENING_PORT = 8080;
     private ServerSocket serverSocket;
 
-    private HashMap<String, FileInfo> fileList;
+    private ConcurrentHashMap<String, FileInfo> fileList;
+    private ConcurrentHashMap<String, String> messages;
 
     public static void main(String[] args) throws Exception {
         LOGGER.info("Starting P2P server");
@@ -35,7 +39,8 @@ public class Server {
 
 
     public Server() throws Exception {
-        fileList = new HashMap<>();
+        fileList = new ConcurrentHashMap<>();
+        messages = new ConcurrentHashMap<>();
         LOGGER.info("Init server on port " + LISTENING_PORT + "");
 
         //try to obtain server socket
@@ -67,6 +72,17 @@ public class Server {
 
     }
 
+    public void udpHeartBeatServer() throws Exception {
+        DatagramSocket dSock = new DatagramSocket(LISTENING_PORT);
+        while (true) {
+            LOGGER.info("Echo UDP..");
+            DatagramPacket dPkt = new DatagramPacket(new byte[1500], 1500);
+            dSock.receive(dPkt);
+            DatagramPacket echoPkt = new DatagramPacket(dPkt.getData(), dPkt.getData().length, dPkt.getSocketAddress());
+            dSock.send(echoPkt);
+        }
+    }
+
     private void handleClientSocket(Socket socket) throws Exception {
         LOGGER.info("Client connected\n");
         ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
@@ -80,7 +96,7 @@ public class Server {
                 RegisterPacket regPkt = (RegisterPacket) pkt;
 //                String clientIP = socket.getInetAddress().getHostAddress();
                 int clientPort = regPkt.getPort();
-                InetAddress clientIP = regPkt.getPublicIP();
+                InetAddress clientIP = socket.getInetAddress();
                 clientAddress = new InetSocketAddress(clientIP, clientPort);
                 LOGGER.info(String.format("Client Address: %s :%d", clientIP, clientPort));
             }
@@ -92,15 +108,18 @@ public class Server {
                 UpdatePacket upPkt = (UpdatePacket) pkt;
                 String filename = upPkt.getFilename();
                 int numChunks = upPkt.getChunks();
+                LinkedList<String> checksums = upPkt.getChecksums();
                 FileInfo fileInfo;
                 if (!fileList.containsKey(filename)) {
                     LOGGER.info("creating new file entry: %s".format(filename));
                     fileInfo = new FileInfo(filename);
                     for (int i = 0; i < numChunks; i++) {
                         ChunkInfo chunk = new ChunkInfo(i);
+                        chunk.setChecksum(checksums.removeFirst());
                         chunk.addPeer(clientAddress);
                         fileInfo.addChunk(chunk);
                     }
+                    fileInfo.setChecksum(checksums.getLast());
                 } else {
                     fileInfo = fileList.get(filename);
                     fileInfo.addPeer(clientAddress);
@@ -133,6 +152,38 @@ public class Server {
                     fileInfo.removePeer(clientAddress);
                 }
                 break;
+            }
+
+            if (pkt.getType() == 6) { // DownloadRequest
+                LOGGER.info("DOWNLOAD REQ");
+                String x = (String) pkt.getPayload();
+                String ip = x.split(":")[0];
+                String port = x.split(":")[1];
+                String y = "";
+                if (messages.containsKey(ip)) {
+                    y = ";" + messages.get(ip);
+                }
+                y += clientAddress.getAddress().getHostAddress()+":"+port;
+                LOGGER.info(String.format("Put Req of %s for %s@%s", clientAddress.getAddress().getHostAddress(), ip, port));
+                messages.put(ip,y);
+            }
+
+            if (pkt.getType() == 7) { // Heartbeat
+//                LOGGER.info("HeartBeat");
+                // check if have message
+                if (clientAddress == null){
+                    clientAddress = new InetSocketAddress(socket.getInetAddress(),socket.getPort());
+                }
+                Packet packet ;
+                if (!messages.containsKey(clientAddress.getAddress().getHostAddress())) {
+                    packet = new Packet(7,1);
+                } else {
+                    packet= new Packet(7,2, messages.get(clientAddress.getAddress().getHostAddress()));
+                    messages.remove(clientAddress.getAddress().getHostAddress());
+                    LOGGER.info("REQ SENT");
+                }
+                oos.writeObject(packet);
+                oos.flush();
             }
         }
         ois.close();
