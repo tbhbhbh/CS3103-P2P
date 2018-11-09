@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.time.Period;
 import java.util.Scanner;
 
 public class Client {
@@ -30,7 +31,7 @@ public class Client {
         Peer peer = new Peer();
 
         try {
-            clientSocket = new Socket("3.16.37.66", SERVER_PORT);
+            clientSocket = new Socket("3.16.113.69", SERVER_PORT);
             oos = new ObjectOutputStream(clientSocket.getOutputStream());
             ois = new ObjectInputStream(clientSocket.getInputStream());
             System.out.println(String.format("Connected! %s:%d", clientSocket.getInetAddress(), clientSocket.getPort()));
@@ -76,29 +77,37 @@ public class Client {
             option = scanner.nextInt();
             scanner.nextLine();
             if (option == 1) {
+                Peer.HEARTBEATOFF = true;
                 System.out.println("listing files from server...");
                 peer.getDir(ois, oos);
+                Peer.HEARTBEATOFF = false;
             }
 
             if (option == 2) {
+                Peer.HEARTBEATOFF = true;
                 System.out.println("Enter filename: ");
                 String filename;
                 filename = scanner.nextLine();
                 System.out.println("Requesting file from server on how many chunks and peer info");
                 peer.getFile(ois, oos,filename);
+                Peer.HEARTBEATOFF = false;
             }
 
             if (option == 3) {
+                Peer.HEARTBEATOFF = true;
                 System.out.println("Downloading a file");
                 peer.download(ois, oos);
+                Peer.HEARTBEATOFF = false;
             }
 
             if (option == 4) {
+                Peer.HEARTBEATOFF = true;
                 System.out.println("Enter filename: ");
                 String filename;
                 filename = scanner.nextLine();
                 System.out.println("Initial announcement of a file");
                 peer.updateServer(ois, oos, filename);
+                Peer.HEARTBEATOFF = false;
 
             }
 

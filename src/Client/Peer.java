@@ -40,14 +40,17 @@ public class Peer {
     private int peerId;
     private int port;
     private int numChunks;
+    public static boolean HEARTBEATOFF = false;
 
     public ServerSocket serverSocket;
     public DatagramSocket dataSocket;
     InetSocketAddress holePunchedIP;
+    LinkedList<DatagramPacket> mq;
 
     public Peer() {
         this.port = generatePort();
         initDirectories();
+        mq = new LinkedList<>();
     }
 
     private void initDirectories() {
@@ -62,15 +65,20 @@ public class Peer {
      */
     private int generatePort() {
         Random r = new Random();
-        return r.nextInt(9000 - 8100) + 8100;
+        int rdmPort = r.nextInt(9000 - 8100) + 8100;
+        while (rdmPort == port) {
+            rdmPort = r.nextInt(9000 - 8100) + 8100;
+        }
+        return rdmPort;
     }
 
-    public void heartbeat(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
+    public void heartbeat(ObjectInputStream ois, ObjectOutputStream oos) {
         new Thread() {
             public void run(){
                 while (true) {
                     try {
                         Thread.sleep(1000);
+                        if (HEARTBEATOFF) continue;
                         Packet heartbeatPacket = new Packet(7,0);
                         oos.writeObject(heartbeatPacket);
                         oos.flush();
@@ -83,9 +91,14 @@ public class Peer {
                                 System.out.println("HolePunching for THIS DUDE. "+host);
                                 String ip = host.split(":")[0];
                                 int port = Integer.parseInt(host.split(":")[1]);
+//                                System.out.println(dataSocket.isBound());
+//                                InetSocketAddress test2 = Stun.holePunch(dataSocket,"108.177.98.127");
+//                                System.out.println(String.format("Current IP %S  Port %d", test2.getAddress().getHostAddress(), test2.getPort()));
                                 DatagramPacket dp = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE, InetAddress.getByName(ip), port);
-                                for (int i=0;i>10;i++){
-                                    dataSocket.send(dp);
+                                for (int i=0;i<1;i++){
+//                                    dataSocket.send(dp);
+                                    mq.add(dp);
+                                    System.out.println("Add Packets");
                                 }
                             }
                         }
@@ -193,10 +206,11 @@ public class Peer {
         return hexString.toString();
     }
     //Uploading
-    public void server() throws Exception {
+    public void server() {
         try {
             serverSocket = new ServerSocket(port);
-            dataSocket = new DatagramSocket(port);
+            dataSocket = new DatagramSocket(new InetSocketAddress("0.0.0.0", port));
+            dataSocket.setSoTimeout(10000);
 //            holePunchedIP = new InetSocketAddress(dataSocket.getLocalAddress(), port);
             holePunchedIP = Stun.holePunch(dataSocket, "108.177.98.127");
             // check if under Symmetric NAT
@@ -209,18 +223,13 @@ public class Peer {
                 System.out.println("Symmetric NAT concluded based on IP");
                 // handle symmetric nat
             }
-//            new Thread(){
-//                @Override
-//                public void run() {
-//                    dataSocket.send();
-//                }
-//            }.start();
             System.out.println(String.format("Peer serving %d", port));
         } catch (Exception e) {
             System.out.println(e);
             return;
         }
         while (true) {
+            try {
             System.out.println(dataSocket.isConnected());
             DatagramPacket dataPkt = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE);
             dataSocket.receive(dataPkt);
@@ -254,10 +263,40 @@ public class Peer {
                 } else {
                     System.out.println("The received object is not of type RequestPacket!");
                 }
-//            } catch (Exception e) {
-//                System.out.println(e);
-//                System.out.println("No object could be read from the received UDP datagram.");
-//            }
+            } catch (SocketTimeoutException ste) {
+                // Send HeartBeat
+                System.out.println(String.format("Timeout.. send Heartbeat MQ.isEmpty-%s", mq.isEmpty()));
+                while(!mq.isEmpty()) {
+                    try {
+                        DatagramPacket dp = mq.poll();
+                        System.out.println(String.format("Hole Punch %s:%d",dp.getAddress().getHostAddress(), dp.getPort() ));
+                        Packet heartbeatPkt = new Packet(7,0);
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        ObjectOutputStream oos = new ObjectOutputStream(baos);
+                        oos.writeObject(heartbeatPkt);
+                        oos.flush();
+
+                        byte[] data = baos.toByteArray();
+                        dataSocket.send(new DatagramPacket(data, data.length));
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                try {
+                    InetSocketAddress reStunIP = Stun.holePunch(dataSocket, "74.125.200.127");
+                    if (reStunIP.getPort() != holePunchedIP.getPort()) {
+                        System.out.println("Port Have Changed!");
+                        // TODO: Handle port changed.
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            catch (Exception e) {
+                System.out.println(e);
+                System.out.println("No object could be read from the received UDP datagram.");
+            }
         }
     }
 
@@ -331,11 +370,12 @@ public class Peer {
         dSock.connect(peerAddress,port);
         dSock.setSoTimeout(3000);
 
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
         ArrayList<String> params = new ArrayList<>();
         params.add(fileName);
         params.add(String.valueOf(i));
         RequestPacket<ArrayList<String>> requestPacket = new RequestPacket<>(0, params);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(baos);
         oos.writeObject(requestPacket);
         oos.flush();
@@ -349,19 +389,14 @@ public class Peer {
             try {
                 System.out.println(String.format("Waiting at %s:%s", dSock.getLocalAddress(), dSock.getLocalPort()));
                 dSock.receive(dataPkt);
-                break;
+
             } catch (SocketTimeoutException ste) {
-//                dSock.connect(peerAddress,port);
-//                dSock.setSoTimeout(10000);
-//                buffer = new byte[BUFFER_SIZE];
-//                System.out.println(String.format("Timeout... resend request using new port to %s:%d",dSock.getInetAddress(), dSock.getPort()));
                 dSock.send(new DatagramPacket(data, data.length));
                 continue;
             }
-        }
+        try {
             ByteArrayInputStream bais = new ByteArrayInputStream(buffer);
             ObjectInputStream ois = new ObjectInputStream(bais);
-//        try {
             Object readObject = ois.readObject();
             if (readObject instanceof RequestPacket) {
                 RequestPacket<byte[]> response = (RequestPacket<byte[]>) readObject;
@@ -376,14 +411,15 @@ public class Peer {
             } else {
                 System.out.println("The received object is not of type RequestPacket!");
             }
-        System.out.println(String.format("Chunk matches Hash - %s",
-                generateMD5(Paths.get(directory.toString(),String.valueOf(i))).equals(checksum)));
-        dSock.close();
-//        } catch (Exception e) {
-//            System.out.println(e);
-//            System.out.println("No object could be read from the received UDP datagram.");
-//        }
-
+            System.out.println(String.format("Chunk matches Hash - %s",
+                    generateMD5(Paths.get(directory.toString(), String.valueOf(i))).equals(checksum)));
+            dSock.close();
+            break;
+        } catch (Exception e) {
+            System.out.println(e);
+            System.out.println("No object could be read from the received UDP datagram.");
+        }
+        }
     }
 
     public void getDir(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
