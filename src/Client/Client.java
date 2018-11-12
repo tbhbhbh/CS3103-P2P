@@ -38,7 +38,9 @@ public class Client {
             peer.heartbeat(ois, oos);
 
         } catch (IOException e) {
-            System.out.println(e);
+            System.out.println("Cannot connect to Tracker.");
+//            System.out.println(e);
+            System.exit(1);
         }
 
         File folder = new File(INPUT_DIRECTORY);
@@ -64,6 +66,12 @@ public class Client {
         t.setDaemon(true);
         t.start();
 
+        // wait till STUN had performed.
+        do {
+            Thread.sleep(1000);
+        } while (!Peer.isHolePunched);
+
+        peer.registerPeer(ois, oos);
         Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.println("\nSelect option: ");
@@ -80,7 +88,7 @@ public class Client {
             }
             if (option == 1) {
                 Peer.HEARTBEATOFF = true;
-                System.out.println("listing files from server...");
+                System.out.println("=======listing files from server... =======");
                 peer.getDir(ois, oos);
                 Peer.HEARTBEATOFF = false;
             }
@@ -90,14 +98,14 @@ public class Client {
                 System.out.println("Enter filename: ");
                 String filename;
                 filename = scanner.nextLine();
-                System.out.println("Requesting file from server on how many chunks and peer info");
+                System.out.println("======= Requesting file from server on how many chunks and peer info =======");
                 peer.getFile(ois, oos,filename);
                 Peer.HEARTBEATOFF = false;
             }
 
             if (option == 3) {
                 Peer.HEARTBEATOFF = true;
-                System.out.println("Downloading a file");
+                System.out.println("======= Downloading a file =======");
                 peer.download(ois, oos);
                 Peer.HEARTBEATOFF = false;
             }
@@ -107,14 +115,14 @@ public class Client {
                 System.out.println("Enter filename: ");
                 String filename;
                 filename = scanner.nextLine();
-                System.out.println("Initial announcement of a file");
+                System.out.println("======= Initial announcement of a file =======");
                 peer.updateServer(ois, oos, filename);
                 Peer.HEARTBEATOFF = false;
 
             }
 
             else if (option == 5) {
-                System.out.println("Deregistering and disconnecting. Goodbye");
+                System.out.println("======= Deregistering and disconnecting. Goodbye =======");
                 peer.shutdown(ois, oos);
                 disconnect(clientSocket);
                 break;

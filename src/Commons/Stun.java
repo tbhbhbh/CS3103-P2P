@@ -6,6 +6,9 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
+/**
+ * Code translation from c to java based off Prof Anand Sample Code (youripSTUNClient.c)
+ */
 public class Stun {
     public static void main(String[] args) throws Exception{
         holePunch(new DatagramSocket(5000),"74.125.200.127");
