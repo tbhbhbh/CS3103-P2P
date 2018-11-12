@@ -122,9 +122,14 @@ public class Peer {
      * Peer updates server of a file
      *
      */
-    public void updateServer(ObjectInputStream ois, ObjectOutputStream oos, String fileName) throws Exception{
-
-        final long sourceSize = Files.size(Paths.get(INPUT_DIRECTORY + fileName));
+    public void updateServer(ObjectInputStream ois, ObjectOutputStream oos, String fileName) throws Exception {
+        final long sourceSize;
+        try {
+             sourceSize = Files.size(Paths.get(INPUT_DIRECTORY + fileName));
+        } catch (IOException ioe) {
+            System.out.println("Cannot find File!");
+            return;
+        }
         final long bytesPerSplit = 1024L; //1 chunk = 1024 bytes
         final int numChunks = (int) Math.ceil(sourceSize / bytesPerSplit);
         final long remainingBytes = sourceSize % bytesPerSplit;
