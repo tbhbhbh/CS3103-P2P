@@ -46,6 +46,7 @@ public class Client {
         File folder = new File(INPUT_DIRECTORY);
         File[] listOfFiles = folder.listFiles();
 
+        System.out.println("============ Files and Directories in current Directory ==============");
         for (int i = 0; i < listOfFiles.length; i++) {
             if (listOfFiles[i].isFile()) {
                 System.out.println("File " + listOfFiles[i].getName());
@@ -53,6 +54,7 @@ public class Client {
                 System.out.println("Directory " + listOfFiles[i].getName());
             }
         }
+        System.out.println("======================================================================");
 
         Thread t = new Thread(){
             public void run(){
@@ -122,7 +124,7 @@ public class Client {
             }
 
             else if (option == 5) {
-                System.out.println("======= Deregistering and disconnecting. Goodbye =======");
+                System.out.println("=============== Deregistering and disconnecting. Goodbye ===============");
                 peer.shutdown(ois, oos);
                 disconnect(clientSocket);
                 break;
