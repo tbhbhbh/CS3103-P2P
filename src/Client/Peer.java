@@ -462,9 +462,14 @@ public class Peer {
         sem.release();
         QueryDirPacket replyPkt = (QueryDirPacket) obj;
         Object payload = replyPkt.getPayload();
-        Iterator<String> fileListing = ((List<String>) payload).iterator();
-        while (fileListing.hasNext()) {
-            System.out.println(fileListing.next());
+        List<String> files = (List<String>) payload;
+        if (files.isEmpty()) {
+            System.out.println("No File Info available in Tracker!");
+        } else {
+            Iterator<String> fileListing = files.iterator();
+            while (fileListing.hasNext()) {
+                System.out.println(fileListing.next());
+            }
         }
 
     }
@@ -480,7 +485,11 @@ public class Peer {
         Object payload = replyPkt.getPayload();
         FileInfo fileInfo = (FileInfo) payload;
         this.FileInfo = fileInfo;
-        System.out.println("Fetched File Info!");
+        if (fileInfo == null) {
+            System.out.println("No Such File!");
+        } else {
+            System.out.println("Fetched File Info!");
+        }
 
     }
 
