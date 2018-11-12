@@ -20,6 +20,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Semaphore;
 
 import Commons.Packet;
 import Commons.QueryDirPacket;
@@ -41,6 +42,7 @@ public class Peer {
     private int port;
     private int numChunks;
     public static boolean HEARTBEATOFF = false;
+    Semaphore sem;
 
     public ServerSocket serverSocket;
     public DatagramSocket dataSocket;
@@ -51,6 +53,7 @@ public class Peer {
         this.port = generatePort();
         initDirectories();
         mq = new LinkedList<>();
+        sem = new Semaphore(1);
     }
 
     private void initDirectories() {
@@ -80,26 +83,22 @@ public class Peer {
                         Thread.sleep(1000);
                         if (HEARTBEATOFF) continue;
                         Packet heartbeatPacket = new Packet(7,0);
+                        sem.acquire();
                         oos.writeObject(heartbeatPacket);
                         oos.flush();
                         Object obj = ois.readObject();
+                        sem.release();
                         Packet replyPkt = (Packet)obj;
                         if (replyPkt.getCode() == 2) {
                             String message = (String) replyPkt.getPayload();
                             String[] hosts = message.split(";");
                             for (String host : hosts) {
-                                System.out.println("HolePunching for THIS DUDE. "+host);
+                                System.out.println("HolePunching for  "+host);
                                 String ip = host.split(":")[0];
                                 int port = Integer.parseInt(host.split(":")[1]);
-//                                System.out.println(dataSocket.isBound());
-//                                InetSocketAddress test2 = Stun.holePunch(dataSocket,"108.177.98.127");
-//                                System.out.println(String.format("Current IP %S  Port %d", test2.getAddress().getHostAddress(), test2.getPort()));
                                 DatagramPacket dp = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE, InetAddress.getByName(ip), port);
-                                for (int i=0;i<1;i++){
-//                                    dataSocket.send(dp);
-                                    mq.add(dp);
-                                    System.out.println("Add Packets");
-                                }
+                                mq.add(dp);
+                                System.out.println("Add Packets");
                             }
                         }
                     } catch (Exception e) {
@@ -125,7 +124,7 @@ public class Peer {
 
         //create a folder with filename
         String foldername = "c" + fileName;
-        System.out.println(new File(INPUT_DIRECTORY + foldername).mkdirs());
+        System.out.println(String.format("Create new directory for file ... - %s", new File(INPUT_DIRECTORY + foldername).mkdirs()));
 
 
         //split file
@@ -157,12 +156,14 @@ public class Peer {
 
         System.out.println(String.format("Registering peer @ %s:%d", holePunchedIP.getAddress(), holePunchedIP.getPort()));
         RegisterPacket regPacket = new RegisterPacket(holePunchedIP);
+        sem.acquire();
         oos.writeObject(regPacket);
         oos.flush();
 
         UpdatePacket upPacket = new UpdatePacket(fileName, numChunks, hashes);
         oos.writeObject(upPacket);
         oos.flush();
+        sem.release();
     }
 
     private LinkedList<String> md5ForFile(String filepath, int numChunks) throws Exception {
@@ -230,16 +231,14 @@ public class Peer {
         }
         while (true) {
             try {
-            System.out.println(dataSocket.isConnected());
-            DatagramPacket dataPkt = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE);
-            dataSocket.receive(dataPkt);
-            byte[] buffer = dataPkt.getData();
+                DatagramPacket dataPkt = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE);
+                dataSocket.receive(dataPkt);
+                byte[] buffer = dataPkt.getData();
 
-            ByteArrayInputStream bais = new ByteArrayInputStream(buffer);
-            ObjectInputStream ois = new ObjectInputStream(bais);
-//            try {
+                ByteArrayInputStream bais = new ByteArrayInputStream(buffer);
+                ObjectInputStream ois = new ObjectInputStream(bais);
                 Object readObject = ois.readObject();
-            System.out.println("Received Object!");
+                System.out.println("Received Object!");
                 if (readObject instanceof RequestPacket) {
                     RequestPacket<ArrayList<String>> request = (RequestPacket) readObject;
                     ArrayList<String> params = request.getPayload();
@@ -265,7 +264,7 @@ public class Peer {
                 }
             } catch (SocketTimeoutException ste) {
                 // Send HeartBeat
-                System.out.println(String.format("Timeout.. send Heartbeat MQ.isEmpty-%s", mq.isEmpty()));
+//                System.out.println(String.format("Timeout.. send Heartbeat MQ.isEmpty-%s", mq.isEmpty()));
                 while(!mq.isEmpty()) {
                     try {
                         DatagramPacket dp = mq.poll();
@@ -277,7 +276,7 @@ public class Peer {
                         oos.flush();
 
                         byte[] data = baos.toByteArray();
-                        dataSocket.send(new DatagramPacket(data, data.length));
+                        dataSocket.send(new DatagramPacket(data, data.length,dp.getSocketAddress()));
 
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -311,58 +310,65 @@ public class Peer {
         Path directory = Files.createDirectories(Paths.get(CHUNK_DIRECTORY, filename));
 
         // download chunks from peers
-
         LinkedList<String> hashes = new LinkedList<>();
-        numChunks = FileInfo.getNumOfChunks();
-        System.out.println(String.format("Total Number of chunks to download. %d", numChunks));
-        // Single Thread for now...
-        for (int i = 0; i < numChunks; i++) {
-            ChunkInfo chunk = FileInfo.getChunk(i);
-            hashes.add(chunk.getChecksum());
-            int chunkID = chunk.getChunkID();
-            InetSocketAddress peerSocket = chunk.getRdmPeer();
+        boolean validFile;
+        do {
+            hashes = new LinkedList<>();
+            numChunks = FileInfo.getNumOfChunks();
+            System.out.println(String.format("Total Number of chunks to download. %d", numChunks));
+            // Single Thread for now...
+            for (int i = 0; i < numChunks; i++) {
+                ChunkInfo chunk = FileInfo.getChunk(i);
+                hashes.add(chunk.getChecksum());
+                int chunkID = chunk.getChunkID();
+                InetSocketAddress peerSocket = chunk.getRdmPeer();
 
-            int ownPort = generatePort();
-            Packet downloadRequestPacket = new Packet(6,0,peerSocket.getAddress().getHostAddress()+":"+ownPort );
-            oos.writeObject(downloadRequestPacket);
-            oos.flush();
+                int ownPort = generatePort();
+                Packet downloadRequestPacket = new Packet(6, 0, peerSocket.getAddress().getHostAddress() + ":" + ownPort);
+                sem.acquire();
+                oos.writeObject(downloadRequestPacket);
+                oos.flush();
+                sem.release();
 
-            InetAddress peerAddress = peerSocket.getAddress();
-            int peerPort = peerSocket.getPort();
-            downloadFromPeer(directory, peerAddress, ownPort, peerPort, filename, chunkID, chunk.getChecksum());
-            System.out.println(String.format("%d/%d", i+1,numChunks));
-        }
-
-        System.out.println(String.format("Finish downloading all the chunks of %s", filename));
-        System.out.println("Combining all the chunks together...");
-
-        // merge chunks together
-        FileOutputStream fos = new FileOutputStream(OUTPUT_DIRECTORY + filename);
-        DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(fos));
-
-        byte[] buffer = new byte[BUFFER_SIZE];
-        for (int i = 0; i < numChunks; i++) {
-            FileInputStream fis = new FileInputStream(new File(directory.toString(), String.valueOf(i)));
-            int byteRead;
-            while (true) {
-                byteRead = fis.read(buffer);
-                if (byteRead == -1)
-                    break;
-                dos.write(buffer, 0, byteRead);
-                dos.flush();
+                InetAddress peerAddress = peerSocket.getAddress();
+                int peerPort = peerSocket.getPort();
+                downloadFromPeer(directory, peerAddress, ownPort, peerPort, filename, chunkID, chunk.getChecksum());
+                System.out.println(String.format("%d/%d", i + 1, numChunks));
             }
-            fis.close();
-        }
-        hashes.addLast(FileInfo.getChecksum());
-        dos.close();
-        System.out.println(String.format("Hash for file - %s", generateMD5(Paths.get(OUTPUT_DIRECTORY,filename)).equals(FileInfo.getChecksum())));
-        System.out.println(String.format("%s successfully combined from its chunks", filename));
 
+            System.out.println(String.format("Finish downloading all the chunks of %s", filename));
+            System.out.println("Combining all the chunks together...");
+
+            // merge chunks together
+            FileOutputStream fos = new FileOutputStream(OUTPUT_DIRECTORY + filename);
+            DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(fos));
+
+            byte[] buffer = new byte[BUFFER_SIZE];
+            for (int i = 0; i < numChunks; i++) {
+                FileInputStream fis = new FileInputStream(new File(directory.toString(), String.valueOf(i)));
+                int byteRead;
+                while (true) {
+                    byteRead = fis.read(buffer);
+                    if (byteRead == -1)
+                        break;
+                    dos.write(buffer, 0, byteRead);
+                    dos.flush();
+                }
+                fis.close();
+            }
+            hashes.addLast(FileInfo.getChecksum());
+            dos.close();
+            validFile = generateMD5(Paths.get(OUTPUT_DIRECTORY, filename)).equals(FileInfo.getChecksum());
+            System.out.println(String.format("Hash for file - %s", validFile));
+            System.out.println(String.format("%s successfully combined from its chunks", filename));
+        } while (validFile); // Download till it is valid
+
+        // Update server that the chunk is available for download by other peers
         UpdatePacket upPacket = new UpdatePacket(filename, numChunks, hashes);
+        sem.acquire();
         oos.writeObject(upPacket);
         oos.flush();
-        // TODO: checksum handling
-
+        sem.release();
     }
 
     public void downloadFromPeer(Path directory, InetAddress peerAddress, int ownPort, int port, String fileName, int i, String checksum) throws Exception {
@@ -380,11 +386,10 @@ public class Peer {
         oos.writeObject(requestPacket);
         oos.flush();
         byte[] data = baos.toByteArray();
-        System.out.println(peerAddress);
         dSock.send(new DatagramPacket(data, data.length));
 
         byte[] buffer = new byte[BUFFER_SIZE];
-        while(true) {
+        while (true) {
             DatagramPacket dataPkt = new DatagramPacket(buffer, BUFFER_SIZE, peerAddress, port);
             try {
                 System.out.println(String.format("Waiting at %s:%s", dSock.getLocalAddress(), dSock.getLocalPort()));
@@ -394,40 +399,46 @@ public class Peer {
                 dSock.send(new DatagramPacket(data, data.length));
                 continue;
             }
-        try {
-            ByteArrayInputStream bais = new ByteArrayInputStream(buffer);
-            ObjectInputStream ois = new ObjectInputStream(bais);
-            Object readObject = ois.readObject();
-            if (readObject instanceof RequestPacket) {
-                RequestPacket<byte[]> response = (RequestPacket<byte[]>) readObject;
-                byte[] payload = response.getPayload();
+            try {
+                ByteArrayInputStream bais = new ByteArrayInputStream(buffer);
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                Object readObject = ois.readObject();
+                if (readObject instanceof RequestPacket) {
+                    RequestPacket<byte[]> response = (RequestPacket<byte[]>) readObject;
+                    byte[] payload = response.getPayload();
 
-                File f = new File(directory.toString(), String.valueOf(i));
-                DataOutputStream dosFile = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)));
-                dosFile.write(payload);
-                dosFile.flush();
-                dosFile.close();
-                System.out.println(String.format("Downloaded Chunk %d of %s", i, fileName));
-            } else {
-                System.out.println("The received object is not of type RequestPacket!");
+                    File f = new File(directory.toString(), String.valueOf(i));
+                    DataOutputStream dosFile = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)));
+                    dosFile.write(payload);
+                    dosFile.flush();
+                    dosFile.close();
+                    System.out.println(String.format("Downloaded Chunk %d of %s", i, fileName));
+                } else {
+                    System.out.println("The received object is not of type RequestPacket!");
+                }
+                boolean validFile = generateMD5(Paths.get(directory.toString(), String.valueOf(i))).equals(checksum);
+                System.out.println(String.format("Chunk matches Hash - %s", validFile));
+                // If Chunk downloaded is corrupted, re-download from same peer.
+                if (!validFile) {
+                    dSock.send(new DatagramPacket(data, data.length));
+                }
+                dSock.close();
+                break;
+            } catch (Exception e) {
+                System.out.println(e);
+                System.out.println("No object could be read from the received UDP datagram.");
             }
-            System.out.println(String.format("Chunk matches Hash - %s",
-                    generateMD5(Paths.get(directory.toString(), String.valueOf(i))).equals(checksum)));
-            dSock.close();
-            break;
-        } catch (Exception e) {
-            System.out.println(e);
-            System.out.println("No object could be read from the received UDP datagram.");
-        }
         }
     }
 
     public void getDir(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
         QueryDirPacket queryDirPacket = new QueryDirPacket();
+        sem.acquire();
         oos.writeObject(queryDirPacket);
         oos.flush();
 
         Object obj = ois.readObject();
+        sem.release();
         QueryDirPacket replyPkt = (QueryDirPacket) obj;
         Object payload = replyPkt.getPayload();
         Iterator<String> fileListing = ((List<String>) payload).iterator();
@@ -439,9 +450,11 @@ public class Peer {
 
     public void getFile(ObjectInputStream ois, ObjectOutputStream oos, String filename) throws Exception {
         QueryFilePacket queryDirPacket = new QueryFilePacket(filename);
+        sem.acquire();
         oos.writeObject(queryDirPacket);
         oos.flush();
         Object obj = ois.readObject();
+        sem.release();
         QueryFilePacket replyPkt = (QueryFilePacket) obj;
         Object payload = replyPkt.getPayload();
         FileInfo fileInfo = (FileInfo) payload;
@@ -452,8 +465,10 @@ public class Peer {
 
     public void shutdown(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
         Packet pkt = new Packet(5, 0);
+        sem.acquire();
         oos.writeObject(pkt);
         oos.flush();
+        sem.release();
     }
 
 

@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.time.Period;
 import java.util.Scanner;
 
 public class Client {
@@ -65,7 +64,6 @@ public class Client {
         t.setDaemon(true);
         t.start();
 
-
         Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.println("\nSelect option: ");
@@ -74,8 +72,12 @@ public class Client {
             System.out.println("3: Download a file");
             System.out.println("4: Update server on a file");
             System.out.println("5: Disconnect");
-            option = scanner.nextInt();
-            scanner.nextLine();
+            if (scanner.hasNextInt()) {
+                option = scanner.nextInt();
+                scanner.nextLine();
+            } else {
+                continue;
+            }
             if (option == 1) {
                 Peer.HEARTBEATOFF = true;
                 System.out.println("listing files from server...");
