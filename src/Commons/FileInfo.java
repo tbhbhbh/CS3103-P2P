@@ -12,10 +12,12 @@ public class FileInfo implements Serializable {
     private String filename;
     private String checksum;
     private ArrayList<ChunkInfo> chunkList;
+    private int numOfPeers;
 
     public FileInfo(String filename) {
         chunkList = new ArrayList<>();
         this.filename = filename;
+        numOfPeers = 0;
     }
 
     public String getChecksum() {
@@ -30,12 +32,14 @@ public class FileInfo implements Serializable {
         for (ChunkInfo chunk: chunkList) {
             chunk.removePeer(inet);
         }
+        numOfPeers--;
     }
 
     public void addPeer(InetSocketAddress inet) {
         for (ChunkInfo chunk: chunkList) {
             chunk.addPeer(inet);
         }
+        numOfPeers++;
     }
 
     public int getNumOfChunks() {
@@ -52,6 +56,10 @@ public class FileInfo implements Serializable {
 
     public String getFilename() {
         return filename;
+    }
+
+    public boolean isEmpty() {
+        return numOfPeers <= 0;
     }
 
 }

@@ -158,6 +158,9 @@ public class Server {
                     LOGGER.info("shutdown peer");
                     for (FileInfo fileInfo : fileList.values()) {
                         fileInfo.removePeer(clientAddress);
+                        if (fileInfo.isEmpty()) {
+                            fileList.remove(fileInfo.getFilename());
+                        }
                     }
                     break;
                 }
