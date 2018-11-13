@@ -36,9 +36,10 @@ import Commons.ChunkInfo;
 public class Peer {
 
     private final String CHUNK_DIRECTORY = OUTPUT_DIRECTORY + "chunks/";
+    private final String GOOGLE_STUN_1 = "74.125.200.127";
+    private final String GOOGLE_STUN_2 = "108.177.98.127";
     private final int BUFFER_SIZE = 1500;
     private FileInfo FileInfo;
-    private int peerId;
     private int port;
     private int numChunks;
     Semaphore sem;
@@ -92,7 +93,7 @@ public class Peer {
                             String message = (String) replyPkt.getPayload();
                             String[] hosts = message.split(";");
                             for (String host : hosts) {
-                                System.out.println("HolePunching for  "+host);
+                                System.out.println("HolePunching for "+host);
                                 String ip = host.split(":")[0];
                                 int port = Integer.parseInt(host.split(":")[1]);
                                 DatagramPacket dp = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE, InetAddress.getByName(ip), port);
@@ -108,7 +109,6 @@ public class Peer {
                         } catch (IOException ioe) {
                             System.out.println("Socket already closed!");
                         }
-//                        e.printStackTrace();
                         System.exit(-1);
                     }
                 }
@@ -234,9 +234,9 @@ public class Peer {
             dataSocket = new DatagramSocket(new InetSocketAddress("0.0.0.0", port));
             dataSocket.setSoTimeout(10000);
 //            holePunchedIP = new InetSocketAddress(dataSocket.getLocalAddress(), port);
-            holePunchedIP = Stun.holePunch(dataSocket, "108.177.98.127");
+            holePunchedIP = Stun.holePunch(dataSocket, GOOGLE_STUN_2);
             // check if under Symmetric NAT
-            InetSocketAddress secPunchedIP = Stun.holePunch(dataSocket,"74.125.200.127");
+            InetSocketAddress secPunchedIP = Stun.holePunch(dataSocket,GOOGLE_STUN_1);
             if (holePunchedIP.getPort() != secPunchedIP.getPort()) {
                 System.out.println("Symmetric NAT concluded based on PORT");
                 // handle symmetric nat
@@ -304,7 +304,7 @@ public class Peer {
                     }
                 }
                 try {
-                    InetSocketAddress reStunIP = Stun.holePunch(dataSocket, "74.125.200.127");
+                    InetSocketAddress reStunIP = Stun.holePunch(dataSocket, GOOGLE_STUN_1);
                     if (reStunIP.getPort() != holePunchedIP.getPort()) {
                         System.out.println("Port Have Changed!");
                         // TODO: Handle port changed.
