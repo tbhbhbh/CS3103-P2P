@@ -32,3 +32,20 @@ Manually updates a file to make it available in the centralized directory listin
 
 Disconnects itself from the file sharing network.
 
+For testing purposes, we have provided a file, pepe.jpg in the directory where files are to be detected "src/files/". Please follow the instructions below to test our program:
+
+1) Run the tracker (Tracker/Server) on a public domain. During our testing, We used an AWS instance to run our tracker.
+
+2) Run 2 different clients, both in seperate NATs. During our testing, we used a client in a private home network and a client behind NUS network.
+
+3) Have one of the clients register pepe.jpg as a file with command (4).
+
+4) Have the other client list the files available with command (1). You should see 'pepe.jpg' in the list. 
+
+5) Now, request for the file with command (2) and type in the name of the file.
+
+6) You can now use command (3) to download the file. 
+
+7) Once downloading is successful, check the downloading client for the image in the output directory in src/files/output.
+
+8) Once done, you can exit with command (5).
