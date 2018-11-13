@@ -47,6 +47,7 @@ public class Peer {
     public ServerSocket serverSocket;
     public DatagramSocket dataSocket;
     InetSocketAddress holePunchedIP;
+
     LinkedList<DatagramPacket> mq;
     public static boolean isHolePunched = false;
 
@@ -238,11 +239,13 @@ public class Peer {
             // check if under Symmetric NAT
             InetSocketAddress secPunchedIP = Stun.holePunch(dataSocket,GOOGLE_STUN_1);
             if (holePunchedIP.getPort() != secPunchedIP.getPort()) {
-                System.out.println("Symmetric NAT concluded based on PORT");
+                System.out.println("Symmetric NAT concluded based on PORT. Closing Program.");
+                System.exit(1);
                 // handle symmetric nat
             }
             if (!holePunchedIP.getHostString().equals(secPunchedIP.getHostString())) {
-                System.out.println("Symmetric NAT concluded based on IP");
+                System.out.println("Symmetric NAT concluded based on IP. Closeing Program.");
+                System.exit(1);
                 // handle symmetric nat
             }
             System.out.println(String.format("Peer serving %d", port));
@@ -306,7 +309,10 @@ public class Peer {
                 try {
                     InetSocketAddress reStunIP = Stun.holePunch(dataSocket, GOOGLE_STUN_1);
                     if (reStunIP.getPort() != holePunchedIP.getPort()) {
-                        System.out.println("Port Have Changed!");
+                        System.out.println("Port Have Changed! Closing Program.");
+                        // Close Program when port changed ...
+                        dataSocket.close();
+                        System.exit(1);
                         // TODO: Handle port changed.
                     }
                 } catch (Exception e) {
