@@ -82,44 +82,37 @@ public class Client {
             System.out.println("3: Download a file");
             System.out.println("4: Update server on a file");
             System.out.println("5: Disconnect");
+            System.out.print("Option: ");
             if (scanner.hasNextInt()) {
                 option = scanner.nextInt();
-                scanner.nextLine();
             } else {
-                continue;
+                option = -1;
             }
+            scanner.nextLine();
             if (option == 1) {
-                Peer.HEARTBEATOFF = true;
                 System.out.println("=======listing files from server... =======");
                 peer.getDir(ois, oos);
-                Peer.HEARTBEATOFF = false;
             }
 
             if (option == 2) {
-                Peer.HEARTBEATOFF = true;
-                System.out.println("Enter filename: ");
+                System.out.print("Enter filename: ");
                 String filename;
                 filename = scanner.nextLine();
                 System.out.println("======= Requesting file from server on how many chunks and peer info =======");
                 peer.getFile(ois, oos,filename);
-                Peer.HEARTBEATOFF = false;
             }
 
             if (option == 3) {
-                Peer.HEARTBEATOFF = true;
                 System.out.println("======= Downloading a file =======");
                 peer.download(ois, oos);
-                Peer.HEARTBEATOFF = false;
             }
 
             if (option == 4) {
-                Peer.HEARTBEATOFF = true;
-                System.out.println("Enter filename: ");
+                System.out.print("Enter filename: ");
                 String filename;
                 filename = scanner.nextLine();
                 System.out.println("======= Initial announcement of a file =======");
                 peer.updateServer(ois, oos, filename);
-                Peer.HEARTBEATOFF = false;
 
             }
 
@@ -130,7 +123,7 @@ public class Client {
                 break;
             }
 
-            else if (option > 5) {
+            else if (option > 5 || option < 1) {
                 System.out.println("Invalid option");
             }
         }

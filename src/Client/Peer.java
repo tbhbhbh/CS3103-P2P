@@ -41,7 +41,6 @@ public class Peer {
     private int peerId;
     private int port;
     private int numChunks;
-    public static boolean HEARTBEATOFF = false;
     Semaphore sem;
 
     public ServerSocket serverSocket;
@@ -82,7 +81,6 @@ public class Peer {
                 while (true) {
                     try {
                         Thread.sleep(1000);
-                        if (HEARTBEATOFF) continue;
                         Packet heartbeatPacket = new Packet(7,0);
                         sem.acquire();
                         oos.writeObject(heartbeatPacket);
