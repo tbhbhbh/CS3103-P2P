@@ -174,6 +174,7 @@ public class Peer {
         oos.writeObject(upPacket);
         oos.flush();
         sem.release();
+        System.out.println("Inform availability of file to Tracker!");
     }
 
     // register peer with tracker with it's ip&port after STUN
