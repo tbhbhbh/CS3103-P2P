@@ -13,17 +13,22 @@ Instructions for running:
 Commands:
 
 1. List files from server
+
 Lists the files that are available for downloading from peers in the network.
 
 2. Request for a file
+
 Checks for a file to retrieve its information.
 
 3. Download a file
+
 Starts the downloading process. Downloads a file chunk by chunk. Command 2 must be executed before downloading can begin.
 
 4. Update file on a server
+
 Manually updates a file to make it available in the centralized directory listing.
 
 5. Disconnect
+
 Disconnects itself from the file sharing network.
 
