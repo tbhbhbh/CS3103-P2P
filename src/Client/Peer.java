@@ -65,9 +65,7 @@ public class Peer {
         new File(CHUNK_DIRECTORY).mkdir();
     }
 
-    /*
-     * Randomly generates a port number for client to use for their socket.
-     */
+    // Randomly generates a port number for client to use for their socket.
     private int generatePort() {
         Random r = new Random();
         int rdmPort = r.nextInt(9000 - 8100) + 8100;
@@ -77,6 +75,7 @@ public class Peer {
         return rdmPort;
     }
 
+    // Send Heartbeat to Tracker to ensure the TCP connection is alive
     public void heartbeat(ObjectInputStream ois, ObjectOutputStream oos) {
         new Thread() {
             public void run(){
@@ -117,10 +116,7 @@ public class Peer {
         }.start();
     }
 
-    /*
-     * Peer updates server of a file
-     *
-     */
+    // Peer updates track of the availablity of file
     public void updateServer(ObjectInputStream ois, ObjectOutputStream oos, String fileName) throws Exception {
         final long sourceSize;
         try {
@@ -179,6 +175,8 @@ public class Peer {
         oos.flush();
         sem.release();
     }
+
+    // register peer with tracker with it's ip&port after STUN
     public void registerPeer(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
         System.out.println(String.format("Registering peer @ %s:%d", holePunchedIP.getAddress(), holePunchedIP.getPort()));
         RegisterPacket regPacket = new RegisterPacket(holePunchedIP);
@@ -188,6 +186,7 @@ public class Peer {
         sem.release();
     }
 
+    // Generate a list of MD5 Hashes for inclusion in FileInfo
     private LinkedList<String> md5ForFile(String filepath, int numChunks) throws Exception {
         LinkedList<String> hashes = new LinkedList<>();
         MessageDigest md = MessageDigest.getInstance("MD5");
@@ -201,8 +200,8 @@ public class Peer {
         return hashes;
     }
 
+    // Generate MD5 Checksum
     private String generateMD5(Path filename) throws Exception{
-
         MessageDigest md = MessageDigest.getInstance("MD5");
         FileInputStream fis = new FileInputStream(filename.toFile());
         byte[] buffer = new byte[BUFFER_SIZE];
@@ -216,6 +215,7 @@ public class Peer {
         return byteToHex(digest);
     }
 
+    // Conversion from bytes to hex string
     private String byteToHex(byte[] digest) {
         StringBuffer hexString = new StringBuffer();
         for (int i = 0; i < digest.length; i++) {
@@ -228,7 +228,7 @@ public class Peer {
         }
         return hexString.toString();
     }
-    //Uploading
+    // Open UDP Socket so that other Peer can connect to and download files. Do Hole-punching for Peers if needed.
     public void server() {
         try {
             serverSocket = new ServerSocket(port);
@@ -287,7 +287,7 @@ public class Peer {
                     System.out.println("The received object is not of type RequestPacket!");
                 }
             } catch (SocketTimeoutException ste) {
-                // Send HeartBeat
+                // Send HeartBeat(UDP)
 //                System.out.println(String.format("Timeout.. send Heartbeat MQ.isEmpty-%s", mq.isEmpty()));
                 while(!mq.isEmpty()) {
                     try {
@@ -313,7 +313,6 @@ public class Peer {
                         // Close Program when port changed ...
                         dataSocket.close();
                         System.exit(1);
-                        // TODO: Handle port changed.
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -326,7 +325,7 @@ public class Peer {
         }
     }
 
-    // Downloading
+    // Downloading of file from another Peer
     public void download(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
 
         if (FileInfo == null) {
@@ -406,6 +405,7 @@ public class Peer {
         sem.release();
     }
 
+    // Open UDP socket to download chunk
     public boolean downloadFromPeer(Path directory, InetAddress peerAddress, int ownPort, int port, String fileName, int i, String checksum) throws Exception {
         DatagramSocket dSock = new DatagramSocket(ownPort);
         dSock.connect(peerAddress,port);
@@ -476,6 +476,7 @@ public class Peer {
         return (ttl > 0);
     }
 
+    // Ask Tracker to give the listing of files available to download
     public void getDir(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
         QueryDirPacket queryDirPacket = new QueryDirPacket();
         sem.acquire();
@@ -498,6 +499,7 @@ public class Peer {
 
     }
 
+    // Ask Tracker for FileInfo of file
     public void getFile(ObjectInputStream ois, ObjectOutputStream oos, String filename) throws Exception {
         QueryFilePacket queryDirPacket = new QueryFilePacket(filename);
         sem.acquire();
@@ -517,6 +519,7 @@ public class Peer {
 
     }
 
+    // Tell Tracker that Peer is leaving.
     public void shutdown(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
         Packet pkt = new Packet(5, 0);
         sem.acquire();
