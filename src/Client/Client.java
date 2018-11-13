@@ -86,6 +86,8 @@ public class Client {
                 option = scanner.nextInt();
                 scanner.nextLine();
             } else {
+                System.out.println("Invalid input: Please key in a number from 1 to 5!");
+                scanner.nextLine();
                 continue;
             }
             if (option == 1) {
@@ -133,6 +135,7 @@ public class Client {
             else if (option > 5) {
                 System.out.println("Invalid option");
             }
+
         }
     }
 
