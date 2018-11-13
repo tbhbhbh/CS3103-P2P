@@ -6,13 +6,15 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
+/**
+ * Code translation from c to java based off Prof Anand Sample Code (youripSTUNClient.c)
+ */
 public class Stun {
     public static void main(String[] args) throws Exception{
         holePunch(new DatagramSocket(5000),"74.125.200.127");
     }
     public static InetSocketAddress holePunch(DatagramSocket dsock, String STUNIP) throws Exception{
-//        dsock = new DatagramSocket(peerPort);
-        System.out.println("Running STUN Discovery...");
+//        System.out.println("Running STUN Discovery...");
         dsock.connect(InetAddress.getByName(STUNIP), 19305);
         byte[] bindingReq = new byte[20];
         short stunMethod = 0x0001;
@@ -38,7 +40,6 @@ public class Stun {
         dsock.receive(recvPkt);
 
         byte[] data = recvPkt.getData();
-        System.out.println(data.length);
 
         ByteBuffer bb1 = ByteBuffer.wrap(data);
         if (bb1.getShort() == 0x0101) {
@@ -74,13 +75,11 @@ public class Stun {
                     String hex4Trim = hex4.substring(Math.max(hex4.length() - 2, 0));
                     int octlet4 = Integer.parseInt(hex4Trim,16);
 
-                    System.out.println(String.format("%s.%s.%s.%s:%s", hex1Trim, hex2Trim, hex3Trim, hex4Trim, numPort));
-                    System.out.println(String.format("%d.%d.%d.%d:%d", octlet1, octlet2, octlet3, octlet4, numPort));
+//                    System.out.println(String.format("%s.%s.%s.%s:%s", hex1Trim, hex2Trim, hex3Trim, hex4Trim, numPort));
+//                    System.out.println(String.format("%d.%d.%d.%d:%d", octlet1, octlet2, octlet3, octlet4, numPort));
                     InetSocketAddress inetSocketAddress = new InetSocketAddress(
                             String.format("%d.%d.%d.%d", octlet1,octlet2,octlet3,octlet4), numPort);
                     dsock.disconnect();
-                    System.out.println(dsock.isConnected());
-//                    dsock.connect(InetAddress.getByName("74.125.200.127"), 19305);
 
                     return inetSocketAddress;
                 }
@@ -90,10 +89,6 @@ public class Stun {
 
         }
         return null;
-    }
-
-    public static boolean isValidOctlet(int x) {
-        return x>=0 && x<=255;
     }
 
 }
