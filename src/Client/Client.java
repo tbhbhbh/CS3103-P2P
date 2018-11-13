@@ -4,7 +4,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.Scanner;
 
 public class Client {
@@ -25,12 +27,21 @@ public class Client {
     }
 
     public void run() throws Exception {
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Enter Server IP: ");
+        String userInputServerIP = scanner.next();
+        try {
+            InetAddress.getByName(userInputServerIP);
+        } catch (UnknownHostException uhe) {
+            System.out.println("Invalid server IP!");
+            System.exit(1);
+        }
+//        userInputServerIP = "3.16.113.69"; // Testing Server IP
         System.out.println("Client connecting to tracker on port " + SERVER_PORT + "\n");
 
         Peer peer = new Peer();
-
         try {
-            clientSocket = new Socket("3.16.113.69", SERVER_PORT);
+            clientSocket = new Socket(userInputServerIP, SERVER_PORT);
             oos = new ObjectOutputStream(clientSocket.getOutputStream());
             ois = new ObjectInputStream(clientSocket.getInputStream());
             System.out.println(String.format("Connected! %s:%d", clientSocket.getInetAddress(), clientSocket.getPort()));
@@ -74,7 +85,6 @@ public class Client {
         } while (!Peer.isHolePunched);
 
         peer.registerPeer(ois, oos);
-        Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.println("\nSelect option: ");
             System.out.println("1: List files from server");
