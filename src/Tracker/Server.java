@@ -51,7 +51,7 @@ public class Server {
             while (true) {
                 LOGGER.info("Waiting for peer");
                 Socket clientSocket = serverSocket.accept();
-                LOGGER.info(String.format("Client received %s:%d", clientSocket.getInetAddress(), clientSocket.getPort()));
+                LOGGER.info(String.format("Client received %s:%d(TCP)", clientSocket.getInetAddress(), clientSocket.getPort()));
                 Thread t = new Thread() {
                     public void run() {
                         try {
@@ -106,7 +106,7 @@ public class Server {
                     int clientPort = regPkt.getPort();
                     InetAddress clientIP = socket.getInetAddress();
                     clientAddress = new InetSocketAddress(clientIP, clientPort);
-                    LOGGER.info(String.format("Client Address: %s :%d", clientIP, clientPort));
+                    LOGGER.info(String.format("Client Address: %s:%d(UDP)", clientIP, clientPort));
                 }
                 if (pkt.getType() == 4) {// Update Packet
                     LOGGER.info("Update Availability");
