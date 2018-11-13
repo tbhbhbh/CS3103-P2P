@@ -1,16 +1,17 @@
 package Commons;
 
+import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Random;
 
-public class cInfo {
+public class ChunkInfo implements Serializable {
 
     private int chunkID;
-//    private String checksum;
+    private String checksum;
     private ArrayList<InetSocketAddress> peers = new ArrayList<>();
 
-    public cInfo(int chunkID) {
+    public ChunkInfo(int chunkID) {
         this.chunkID = chunkID;
     }
 
@@ -22,9 +23,21 @@ public class cInfo {
         peers.add(inet);
     }
 
+    public void setChecksum(String checksum) {
+        this.checksum = checksum;
+    }
+
+    public String getChecksum() {
+        return checksum;
+    }
+
     public void addPeer(String ipAddress, int port) {
         InetSocketAddress inet = new InetSocketAddress(ipAddress, port);
         peers.add(inet);
+    }
+
+    public void removePeer(InetSocketAddress inet) {
+        peers.remove(inet);
     }
 
     public InetSocketAddress getRdmPeer() {
