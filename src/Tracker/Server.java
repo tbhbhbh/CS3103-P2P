@@ -28,7 +28,6 @@ public class Server {
 
     private static final Logger LOGGER = Logger.getLogger( Server.class.getName() );
     private final int LISTENING_PORT = 8080;
-    private ServerSocket serverSocket;
 
     private ConcurrentHashMap<String, FileInfo> fileList;
     private ConcurrentHashMap<String, String> messages;
@@ -71,17 +70,6 @@ public class Server {
         }
 
 
-    }
-
-    public void udpHeartBeatServer() throws Exception {
-        DatagramSocket dSock = new DatagramSocket(LISTENING_PORT);
-        while (true) {
-            LOGGER.info("Echo UDP..");
-            DatagramPacket dPkt = new DatagramPacket(new byte[1500], 1500);
-            dSock.receive(dPkt);
-            DatagramPacket echoPkt = new DatagramPacket(dPkt.getData(), dPkt.getData().length, dPkt.getSocketAddress());
-            dSock.send(echoPkt);
-        }
     }
 
     private void handleClientSocket(Socket socket) throws Exception{
