@@ -348,18 +348,26 @@ public class Peer {
                 ChunkInfo chunk = FileInfo.getChunk(i);
                 hashes.add(chunk.getChecksum());
                 int chunkID = chunk.getChunkID();
-                InetSocketAddress peerSocket = chunk.getRdmPeer();
+                boolean isCompleted;
+                do {
+                    InetSocketAddress peerSocket = chunk.getRdmPeer();
 
-                int ownPort = generatePort();
-                Packet downloadRequestPacket = new Packet(6, 0, peerSocket.getAddress().getHostAddress() + ":" + ownPort);
-                sem.acquire();
-                oos.writeObject(downloadRequestPacket);
-                oos.flush();
-                sem.release();
+                    int ownPort = generatePort();
+                    Packet downloadRequestPacket = new Packet(6, 0,
+                            peerSocket.getAddress().getHostAddress() + ":" + ownPort);
+                    sem.acquire();
+                    oos.writeObject(downloadRequestPacket);
+                    oos.flush();
+                    sem.release();
 
-                InetAddress peerAddress = peerSocket.getAddress();
-                int peerPort = peerSocket.getPort();
-                downloadFromPeer(directory, peerAddress, ownPort, peerPort, filename, chunkID, chunk.getChecksum());
+                    InetAddress peerAddress = peerSocket.getAddress();
+                    int peerPort = peerSocket.getPort();
+                    isCompleted = downloadFromPeer(directory, peerAddress,
+                            ownPort, peerPort, filename, chunkID, chunk.getChecksum());
+                    if (!isCompleted) {
+                        System.out.println("Redownloading Chunk with other peer!");
+                    }
+                } while (!isCompleted);
                 System.out.println(String.format("%d/%d", i + 1, numChunks));
             }
 
@@ -398,7 +406,7 @@ public class Peer {
         sem.release();
     }
 
-    public void downloadFromPeer(Path directory, InetAddress peerAddress, int ownPort, int port, String fileName, int i, String checksum) throws Exception {
+    public boolean downloadFromPeer(Path directory, InetAddress peerAddress, int ownPort, int port, String fileName, int i, String checksum) throws Exception {
         DatagramSocket dSock = new DatagramSocket(ownPort);
         dSock.connect(peerAddress,port);
         dSock.setSoTimeout(3000);
@@ -413,9 +421,11 @@ public class Peer {
         oos.flush();
         byte[] data = baos.toByteArray();
         dSock.send(new DatagramPacket(data, data.length));
+        int ttl = 10;
 
         byte[] buffer = new byte[BUFFER_SIZE];
         while (true) {
+            ttl--;
             DatagramPacket dataPkt = new DatagramPacket(buffer, BUFFER_SIZE, peerAddress, port);
             try {
                 System.out.println(String.format("Waiting at %s:%s... Sending to %s:%s",
@@ -423,6 +433,10 @@ public class Peer {
                 dSock.receive(dataPkt);
 
             } catch (SocketTimeoutException ste) {
+                // Retry 10 times before give up
+                if (ttl == 0) {
+                    break;
+                }
                 System.out.println("Timeout waiting for packet.. Retry..");
                 dSock.send(new DatagramPacket(data, data.length));
                 continue;
@@ -459,6 +473,7 @@ public class Peer {
             }
         }
         dSock.close();
+        return (ttl > 0);
     }
 
     public void getDir(ObjectInputStream ois, ObjectOutputStream oos) throws Exception {
