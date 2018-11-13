@@ -172,7 +172,7 @@ public class Server {
                     String port = x.split(":")[1];
                     String y = "";
                     if (messages.containsKey(ip)) {
-                        y = ";" + messages.get(ip);
+                        y = messages.get(ip) + ";";
                     }
                     y += clientAddress.getAddress().getHostAddress() + ":" + port;
                     LOGGER.info(String.format("Put Req of %s for %s@%s", clientAddress.getAddress().getHostAddress(), ip, port));
